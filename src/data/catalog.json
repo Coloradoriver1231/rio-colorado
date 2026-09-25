@@ -1,0 +1,118 @@
+{
+  "capacity_source": {
+    "label": "USBR Lower Colorado — Lake/reservoir levels (tablas 'Max Storage' y 'Available capacity'), consultado 25-sep-2026",
+    "url": "https://www.usbr.gov/lc/region/g4000/hourly/levels.html"
+  },
+  "subbasins": [
+    { "id": "green", "name": "Green River", "part": "alta" },
+    { "id": "colorado-alto", "name": "Colorado alto (Colorado)", "part": "alta" },
+    { "id": "gunnison", "name": "Gunnison", "part": "alta" },
+    { "id": "san-juan", "name": "San Juan / Dolores", "part": "alta" },
+    { "id": "principal", "name": "Río principal", "part": "alta" },
+    { "id": "baja", "name": "Cuenca Baja", "part": "baja" }
+  ],
+  "reservoirs": [
+    { "site": 916, "name": "Fontenelle", "river": "Green", "state": "WY", "sub": "green", "major": true },
+    { "site": 917, "name": "Flaming Gorge", "river": "Green", "state": "WY/UT", "sub": "green", "major": true, "capacity_af": 3749000, "full_ft": 6040.0 },
+    { "site": 936, "name": "Big Sandy", "river": "Big Sandy Creek", "state": "WY", "sub": "green" },
+    { "site": 954, "name": "Eden", "river": "Big Sandy Creek", "state": "WY", "sub": "green" },
+    { "site": 944, "name": "Meeks Cabin", "river": "Blacks Fork", "state": "WY", "sub": "green" },
+    { "site": 949, "name": "Stateline", "river": "Smiths Fork", "state": "WY/UT", "sub": "green" },
+    { "site": 927, "name": "Steinaker", "river": "Ashley Creek", "state": "UT", "sub": "green" },
+    { "site": 960, "name": "Red Fleet", "river": "Big Brush Creek", "state": "UT", "sub": "green" },
+    { "site": 930, "name": "Moon Lake", "river": "Lake Fork", "state": "UT", "sub": "green" },
+    { "site": 963, "name": "Upper Stillwater", "river": "Rock Creek", "state": "UT", "sub": "green" },
+    { "site": 928, "name": "Starvation", "river": "Strawberry", "state": "UT", "sub": "green" },
+    { "site": 952, "name": "Currant Creek", "river": "Currant Creek", "state": "UT", "sub": "green" },
+    { "site": 962, "name": "Strawberry", "river": "Strawberry", "state": "UT", "sub": "green" },
+    { "site": 931, "name": "Scofield", "river": "Price", "state": "UT", "sub": "green" },
+    { "site": 932, "name": "Joes Valley", "river": "Cottonwood Creek", "state": "UT", "sub": "green" },
+    { "site": 956, "name": "Huntington North", "river": "Huntington Creek", "state": "UT", "sub": "green" },
+
+    { "site": 100156, "name": "Grand Lake", "river": "Colorado", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100049, "name": "Shadow Mountain", "river": "Colorado", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100010, "name": "Granby", "river": "Colorado", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100118, "name": "Willow Creek", "river": "Willow Creek", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100053, "name": "Williams Fork", "river": "Williams Fork", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100002, "name": "Dillon", "river": "Blue", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100089, "name": "Green Mountain", "river": "Blue", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100120, "name": "Homestake", "river": "Homestake Creek", "state": "CO", "sub": "colorado-alto" },
+    { "site": 100032, "name": "Ruedi", "river": "Fryingpan", "state": "CO", "sub": "colorado-alto" },
+    { "site": 961, "name": "Rifle Gap", "river": "Rifle Creek", "state": "CO", "sub": "colorado-alto" },
+    { "site": 924, "name": "Vega", "river": "Plateau Creek", "state": "CO", "sub": "colorado-alto" },
+
+    { "site": 912, "name": "Taylor Park", "river": "Taylor", "state": "CO", "sub": "gunnison", "major": true },
+    { "site": 913, "name": "Blue Mesa", "river": "Gunnison", "state": "CO", "sub": "gunnison", "major": true, "capacity_af": 827472, "full_ft": 7519.4 },
+    { "site": 914, "name": "Morrow Point", "river": "Gunnison", "state": "CO", "sub": "gunnison", "major": true, "capacity_af": 117025, "full_ft": 7160.0 },
+    { "site": 915, "name": "Crystal", "river": "Gunnison", "state": "CO", "sub": "gunnison", "major": true },
+    { "site": 939, "name": "Silver Jack", "river": "Cimarron", "state": "CO", "sub": "gunnison" },
+    { "site": 945, "name": "Paonia", "river": "Muddy Creek", "state": "CO", "sub": "gunnison" },
+    { "site": 951, "name": "Crawford", "river": "Iron Creek", "state": "CO", "sub": "gunnison" },
+    { "site": 955, "name": "Fruitgrowers", "river": "Dry Creek", "state": "CO", "sub": "gunnison" },
+    { "site": 948, "name": "Ridgway", "river": "Uncompahgre", "state": "CO", "sub": "gunnison" },
+
+    { "site": 920, "name": "Navajo", "river": "San Juan", "state": "NM/CO", "sub": "san-juan", "major": true, "capacity_af": 1696000, "full_ft": 6085.0 },
+    { "site": 933, "name": "Vallecito", "river": "Los Pinos", "state": "CO", "sub": "san-juan" },
+    { "site": 934, "name": "Lemon", "river": "Florida", "state": "CO", "sub": "san-juan" },
+    { "site": 3083, "name": "Lake Nighthorse", "river": "Animas (bombeo)", "state": "CO", "sub": "san-juan" },
+    { "site": 935, "name": "Jackson Gulch", "river": "Mancos", "state": "CO", "sub": "san-juan" },
+    { "site": 958, "name": "McPhee", "river": "Dolores", "state": "CO", "sub": "san-juan" },
+
+    { "site": 919, "name": "Lake Powell", "dam": "Glen Canyon", "river": "Colorado", "state": "UT/AZ", "sub": "principal", "major": true, "capacity_af": 23314000, "full_ft": 3700.0,
+      "levels_ft": [
+        { "ft": 3700, "label": "Embalse lleno" },
+        { "ft": 3490, "label": "Mínimo para generar energía" },
+        { "ft": 3370, "label": "Nivel muerto (no sale agua por la presa)" }
+      ] },
+
+    { "site": 921, "name": "Lake Mead", "dam": "Hoover", "river": "Colorado", "state": "NV/AZ", "sub": "baja", "major": true, "capacity_af": 26120000, "full_ft": 1229.0, "estimate_inflow": true,
+      "levels_ft": [
+        { "ft": 1229, "label": "Embalse lleno" },
+        { "ft": 950, "label": "Mínimo para generar energía" },
+        { "ft": 895, "label": "Nivel muerto (no sale agua por la presa)" }
+      ] },
+    { "site": 922, "name": "Lake Mohave", "dam": "Davis", "river": "Colorado", "state": "NV/AZ", "sub": "baja", "major": true, "capacity_af": 1873648, "estimate_inflow": true },
+    { "site": 923, "name": "Lake Havasu", "dam": "Parker", "river": "Colorado", "state": "CA/AZ", "sub": "baja", "major": true, "capacity_af": 570253, "estimate_inflow": true }
+  ],
+  "gauge_groups": [
+    { "id": "colorado-alto", "name": "Colorado alto" },
+    { "id": "gunnison", "name": "Gunnison" },
+    { "id": "green", "name": "Green / Yampa" },
+    { "id": "san-juan", "name": "San Juan" },
+    { "id": "canon", "name": "Gran Cañón" },
+    { "id": "baja", "name": "Cuenca Baja → México" }
+  ],
+  "gauges": [
+    { "id": "09058000", "name": "Colorado cerca de Kremmling, CO", "group": "colorado-alto" },
+    { "id": "09070500", "name": "Colorado cerca de Dotsero, CO", "group": "colorado-alto" },
+    { "id": "09072500", "name": "Colorado en Glenwood Springs, CO", "group": "colorado-alto" },
+    { "id": "09085100", "name": "Colorado abajo de Glenwood Springs, CO", "group": "colorado-alto" },
+    { "id": "09095500", "name": "Colorado cerca de Cameo, CO", "group": "colorado-alto" },
+    { "id": "09163500", "name": "Colorado en límite CO–UT", "group": "colorado-alto" },
+    { "id": "09180500", "name": "Colorado cerca de Cisco, UT", "group": "colorado-alto", "role": "Colorado antes de unirse al Green" },
+
+    { "id": "09128000", "name": "Gunnison abajo del Gunnison Tunnel, CO", "group": "gunnison", "role": "Salida del sistema Aspinall" },
+    { "id": "09152500", "name": "Gunnison cerca de Grand Junction, CO", "group": "gunnison" },
+
+    { "id": "09217000", "name": "Green cerca de Green River, WY", "group": "green" },
+    { "id": "09234500", "name": "Green cerca de Greendale, UT", "group": "green", "role": "Salida de Flaming Gorge" },
+    { "id": "09251000", "name": "Yampa cerca de Maybell, CO", "group": "green" },
+    { "id": "09261000", "name": "Green cerca de Jensen, UT", "group": "green" },
+    { "id": "09315000", "name": "Green en Green River, UT", "group": "green", "role": "Green antes de unirse al Colorado" },
+
+    { "id": "09355500", "name": "San Juan cerca de Archuleta, NM", "group": "san-juan", "role": "Salida de Navajo" },
+    { "id": "09379500", "name": "San Juan cerca de Bluff, UT", "group": "san-juan", "role": "San Juan entrando a Powell" },
+
+    { "id": "09380000", "name": "Colorado en Lees Ferry, AZ", "group": "canon", "role": "Salida de Lake Powell" },
+    { "id": "09402500", "name": "Colorado cerca de Grand Canyon, AZ", "group": "canon" },
+    { "id": "09404200", "name": "Colorado arriba de Diamond Creek, AZ", "group": "canon", "role": "Principal entrada a Lake Mead" },
+    { "id": "09415000", "name": "Virgin en Littlefield, AZ", "group": "canon", "role": "Afluente de Lake Mead" },
+
+    { "id": "09421500", "name": "Colorado abajo de Hoover Dam", "group": "baja", "role": "Salida de Lake Mead" },
+    { "id": "09423000", "name": "Colorado abajo de Davis Dam", "group": "baja", "role": "Salida de Lake Mohave" },
+    { "id": "09427520", "name": "Colorado abajo de Parker Dam", "group": "baja", "role": "Salida de Lake Havasu" },
+    { "id": "09429490", "name": "Colorado arriba de Imperial Dam", "group": "baja" },
+    { "id": "09520500", "name": "Gila cerca de Dome, AZ", "group": "baja" },
+    { "id": "09522000", "name": "Colorado en NIB (Morelos), AZ", "group": "baja", "role": "Lo que cruza a México" }
+  ]
+}
