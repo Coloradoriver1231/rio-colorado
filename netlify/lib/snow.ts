@@ -12,7 +12,7 @@
  * Las fechas de NRCS y USBR son fechas locales de la estación ("YYYY-MM-DD"); se tratan como texto, sin zonas horarias.
  */
 import { get } from "./net";
-import { fit, pearson, predict, quantile, type Fit } from "./stats";
+import { analogPredict, fit, looPredictions, pearson, predict, quantile, skill, type Skill } from "./stats";
 import { HUC4 } from "./hydro";
 
 const AWDB = "https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1";
@@ -83,6 +83,7 @@ export async function awdbDaily(ids: string[], elements: string, begin: string, 
   for (let i = 0; i < ids.length; i += chunk) chunks.push(ids.slice(i, i + chunk));
   const out = new Map<string, ByElem>();
   let failed = 0;
+  const failedIds: string[] = [];
   const queue = [...chunks];
   const worker = async () => {
     for (let c = queue.shift(); c; c = queue.shift()) {
@@ -91,12 +92,12 @@ export async function awdbDaily(ids: string[], elements: string, begin: string, 
           (central ? "&centralTendencyType=ALL" : ""),
         "json", ms,
       );
-      if (!Array.isArray(j)) { failed++; continue; }
+      if (!Array.isArray(j)) { failed++; failedIds.push(...c); continue; }
       for (const [k, v] of parseAwdbData(j)) out.set(k, { ...(out.get(k) || {}), ...v });
     }
   };
   await Promise.all(Array.from({ length: par }, worker));
-  return { data: out, failedChunks: failed, chunks: chunks.length };
+  return { data: out, failedChunks: failed, chunks: chunks.length, failedIds };
 }
 
 /* ----------------------------------------------------------- precipitación de ventanas */
@@ -155,6 +156,10 @@ export function aggregate(list: StationNow[], total: number): Agg {
 export interface SnowStatus {
   builtAt: string; today: string; wy: number; wyStart: string;
   stations: StationNow[]; missing: number; failedChunks: number;
+  /** cobertura por cuenca: esperadas (activas en NRCS), con dato vigente (≤ 3 días), desactualizadas, sin observación en el período, error de consulta */
+  coverage: Record<"alta" | "baja", { expected: number; withData: number; stale: number; noObs: number; error: number }>;
+  /** fecha más reciente con dato (fecha local de las estaciones) */
+  dataDate: string | null;
   /** lista completa de SNOTEL (se guarda para no volver a pedirla) */
   allStations?: Station[];
   basins: Record<"alta" | "baja", Agg>;
@@ -189,13 +194,20 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
 
   const list: StationNow[] = [];
   let missing = 0;
+  const failedSet = new Set(main.failedIds);
+  const coverage = { alta: { expected: 0, withData: 0, stale: 0, noObs: 0, error: 0 }, baja: { expected: 0, withData: 0, stale: 0, noObs: 0, error: 0 } };
   for (const s of stations) {
+    const cv = coverage[s.basin];
+    cv.expected++;
+    if (failedSet.has(s.id)) { cv.error++; missing++; continue; }
     const d = main.data.get(s.id);
     const w = d?.WTEQ || [], p = d?.PREC || [];
     const lastW = w.length ? w[w.length - 1] : null, lastP = p.length ? p[p.length - 1] : null;
     const date = [lastW?.date, lastP?.date].filter(Boolean).sort().pop() || null;
-    // dato vigente: de los últimos 3 días
-    if (!date || date < addDays(today, -3)) { missing++; continue; }
+    // dato vigente: de los últimos 3 días. Una estación sin dato NO se toma como cero: queda fuera del promedio.
+    if (!date) { cv.noObs++; missing++; continue; }
+    if (date < addDays(today, -3)) { cv.stale++; missing++; continue; }
+    cv.withData++;
     const wv = lastW && lastW.date === date ? lastW : null;
     const pv = lastP && lastP.date === date ? lastP : null;
     const sd = depth.data.get(s.id)?.SNWD || [];
@@ -260,7 +272,8 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
 
   return {
     builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy), light, ms: Date.now() - t0,
-    stations: list, missing, failedChunks: main.failedChunks, allStations: stations,
+    stations: list, missing, failedChunks: main.failedChunks, allStations: stations, coverage,
+    dataDate: list.length ? list.map((x) => x.date).sort().pop()! : null,
     basins, subbasins, season, forecasts,
     forecastError: Array.isArray(fc) ? null : "NRCS no devolvió pronósticos",
   };
@@ -304,15 +317,23 @@ export function aprJulSoFar(csv: string, year: number): { af: number; days: numb
 }
 
 /* ----------------------------------------------------------- estimación del monitor */
+export interface Method {
+  name: string; kind: "regresión" | "años análogos"; predictors: string[];
+  r: number | null; r2: number | null; looR2: number | null; skill: Skill | null;
+}
 export interface ModelOut {
   builtAt: string; today: string; wy: number; runoffYear: number;
   /** fecha del calendario ("MM-DD") en la que se comparan todos los años */
   md: string; inSeason: boolean; reason: string | null;
-  years: { wy: number; sweIdx: number | null; precIdx: number | null; runoff: number | null }[];
+  years: { wy: number; sweIdx: number | null; precIdx: number | null; prevRunoff: number | null; runoff: number | null }[];
   stationsUsed: number; stationsNow: number;
-  current: { sweIdx: number | null; precIdx: number | null };
-  models: { name: string; predictors: string[]; r: number | null; fit: Fit | null }[];
+  current: { sweIdx: number | null; precIdx: number | null; prevRunoff: number | null };
+  models: Method[];
   chosen: string | null;
+  /** validación retrospectiva del método elegido: lo que habría estimado cada año sin conocer ese año */
+  retro: { wy: number; actual: number; pred: number | null }[];
+  halfWidth: number | null;
+  analogYears: number[] | null;
   estimate: { low: number; central: number; high: number } | null;
   climatology: { from: number; to: number; median: number | null; mean: number | null; p10: number | null; p90: number | null; min: { wy: number; af: number } | null; max: { wy: number; af: number } | null; n: number };
   observedSoFar: { af: number; days: number; last: string } | null;
@@ -389,16 +410,56 @@ export async function buildModel(now = Date.now()): Promise<ModelOut | null> {
   const curP = st.map((s) => val(curData?.data, s.id, "PREC"));
   const sw = idx(W, curW), pr = idx(P, curP);
 
-  const years = histYears.map((y, j) => ({ wy: y, sweIdx: sw.years[j], precIdx: pr.years[j], runoff: runoff.get(y) ?? null }));
-  const rows = years.filter((r) => r.runoff != null);
-  const mk = (name: string, preds: ("sweIdx" | "precIdx")[]) => {
-    const ok = rows.filter((r) => preds.every((p) => r[p] != null));
+  const years = histYears.map((y, j) => ({ wy: y, sweIdx: sw.years[j], precIdx: pr.years[j], prevRunoff: runoff.get(y - 1) ?? null, runoff: runoff.get(y) ?? null }));
+  const current = { sweIdx: sw.current, precIdx: pr.current, prevRunoff: runoff.get(wy - 1) ?? null };
+  type P = "sweIdx" | "precIdx" | "prevRunoff";
+  const rowsFor = (preds: P[]) => years.filter((r) => r.runoff != null && preds.every((p) => r[p] != null));
+  const sstOf = (y: number[]) => { const m = y.reduce((a, b) => a + b, 0) / y.length; return y.reduce((a, v) => a + (v - m) ** 2, 0); };
+
+  // regresiones (validación: cada año predicho con un ajuste que no lo incluye)
+  const reg = (name: string, preds: P[]) => {
+    const ok = rowsFor(preds);
     const X = ok.map((r) => preds.map((p) => r[p] as number)), y = ok.map((r) => r.runoff as number);
-    return { name, predictors: preds, r: preds.length === 1 ? pearson(X.map((x) => x[0]), y) : null, fit: fit(X, y, preds) };
+    const f = fit(X, y, preds);
+    const loo = f ? looPredictions(X, y) : [];
+    return {
+      m: { name, kind: "regresión" as const, predictors: preds, r: preds.length === 1 && ok.length > 2 ? pearson(X.map((x) => x[0]), y) : null,
+        r2: f?.r2 ?? null, looR2: f?.looR2 ?? null, skill: f ? skill(y, loo, null) : null },
+      rows: ok, loo, predictNow: (x: number[]) => (f ? predict(f.coef, x) : null),
+    };
   };
-  const models = [mk("SWE", ["sweIdx"]), mk("Precipitación", ["precIdx"]), mk("SWE + precipitación", ["sweIdx", "precIdx"])];
-  const usable = models.filter((m) => m.fit && m.fit.n >= 15).sort((a, b) => a.fit!.looRmse - b.fit!.looRmse);
-  const chosen = usable[0] || null;
+  // años análogos (k = 5) sobre SWE y precipitación
+  const analog = () => {
+    const preds: P[] = ["sweIdx", "precIdx"];
+    const ok = rowsFor(preds);
+    const X = ok.map((r) => preds.map((p) => r[p] as number)), y = ok.map((r) => r.runoff as number);
+    const loo = ok.map((_, i) => analogPredict(X.filter((_, k) => k !== i), y.filter((_, k) => k !== i), X[i])?.pred ?? null);
+    const sk = ok.length >= 15 ? skill(y, loo, null) : null;
+    const sst = ok.length ? sstOf(y) : 0;
+    return {
+      m: { name: "Años análogos (5 más parecidos en SWE y precipitación)", kind: "años análogos" as const, predictors: preds, r: null, r2: null,
+        looR2: sk && sst > 0 ? 1 - (sk.rmse ** 2 * sk.n) / sst : null, skill: sk },
+      rows: ok, loo, predictNow: (x: number[]) => analogPredict(X, y, x)?.pred ?? null,
+      analogYearsNow: (x: number[]) => analogPredict(X, y, x)?.years.map((i) => ok[i].wy) ?? null,
+    };
+  };
+  const cands = [
+    reg("SWE", ["sweIdx"]),
+    reg("Precipitación acumulada", ["precIdx"]),
+    reg("SWE + precipitación", ["sweIdx", "precIdx"]),
+    reg("SWE + aporte del año anterior (humedad de la cuenca, aproximada)", ["sweIdx", "prevRunoff"]),
+  ];
+  const an = analog();
+  const all = [...cands, an];
+  const usable = all.filter((c) => c.m.skill && c.m.skill.n >= 15).sort((a, b) => a.m.skill!.rmse - b.m.skill!.rmse);
+  const best = usable[0] || null;
+  const halfWidth = best ? Z80 * best.m.skill!.rmse : null;
+  // cobertura del intervalo en la validación del método elegido
+  if (best) best.m.skill = skill(best.rows.map((r) => r.runoff as number), best.loo, halfWidth);
+  const models: Method[] = all.map((c) => c.m);
+  const chosen = best ? { name: best.m.name, predictors: best.m.predictors, looR2: best.m.looR2 ?? 0, n: best.m.skill!.n } : null;
+  const retro = best ? best.rows.map((r, i) => ({ wy: r.wy, actual: r.runoff as number, pred: best.loo[i] })) : [];
+  const rows = best ? best.rows : [];
 
   // climatología 1991–2020 del aporte abril–julio
   const clim = [...runoff.entries()].filter(([y]) => y >= 1991 && y <= 2020);
@@ -415,28 +476,32 @@ export async function buildModel(now = Date.now()): Promise<ModelOut | null> {
   // estimación actual
   const runoffYear = wy; // abril–julio del año hidrológico en curso
   let estimate: ModelOut["estimate"] = null;
+  let analogYears: number[] | null = null;
   const reasons: string[] = [];
   let reason: string | null = null;
   if (!inSeason) reason = "Fuera de la temporada de acumulación (1-oct → 1-abr): el modelo se muestra sólo como referencia histórica al 1-abr. La próxima estimación empieza el 1-oct.";
-  else if (!chosen) reason = "No hay suficientes años con datos para ajustar una relación confiable.";
+  else if (!best) reason = "No hay suficientes años con datos para ajustar una relación confiable.";
   else {
-    const x = chosen.predictors.map((p) => (p === "sweIdx" ? sw.current : pr.current));
+    const x = best.m.predictors.map((p) => current[p as P]);
     if (x.some((v) => v == null)) reason = "Faltan datos actuales de las estaciones para calcular el índice.";
     else {
-      const c = predict(chosen.fit!.coef, x as number[]);
-      const e = Z80 * chosen.fit!.looRmse;
-      estimate = { low: Math.max(0, c - e), central: Math.max(0, c), high: Math.max(0, c + e) };
+      const c = best.predictNow(x as number[]);
+      if (c == null) reason = "No se pudo calcular la estimación.";
+      else {
+        estimate = { low: Math.max(0, c - halfWidth!), central: Math.max(0, c), high: Math.max(0, c + halfWidth!) };
+        if (best === an) analogYears = an.analogYearsNow(x as number[]);
+      }
     }
   }
 
   // confianza (reglas documentadas)
   let level: ModelOut["confidence"]["level"] = "insuficiente", score: number | null = null;
   if (estimate && chosen) {
-    const f = chosen.fit!;
+    const f = { looR2: chosen.looR2, n: chosen.n };
     const coverage = sw.used ? sw.now / sw.used : 0;
     const daysToApr = Math.round((Date.parse(`${wy}-04-01T00:00:00Z`) - Date.parse(today + "T00:00:00Z")) / DAY);
-    const xs = rows.map((r) => (chosen.predictors[0] === "sweIdx" ? r.sweIdx : r.precIdx)).filter((v): v is number => v != null);
-    const xNow = chosen.predictors[0] === "sweIdx" ? sw.current! : pr.current!;
+    const xs = rows.map((r) => r[chosen.predictors[0] as P]).filter((v): v is number => v != null);
+    const xNow = current[chosen.predictors[0] as P] as number;
     const inRange = xs.length ? xNow >= Math.min(...xs) && xNow <= Math.max(...xs) : false;
     if (coverage < 0.5 || f.looR2 < 0.3) {
       level = "insuficiente";
@@ -461,8 +526,8 @@ export async function buildModel(now = Date.now()): Promise<ModelOut | null> {
   return {
     builtAt: new Date(now).toISOString(), today, wy, runoffYear, md, inSeason, reason,
     years, stationsUsed: sw.used, stationsNow: sw.now,
-    current: { sweIdx: sw.current, precIdx: pr.current },
-    models: models.map((m) => ({ ...m })), chosen: chosen?.name ?? null,
+    current,
+    models, chosen: chosen?.name ?? null, retro, halfWidth, analogYears,
     estimate, climatology,
     observedSoFar: csv ? aprJulSoFar(csv as string, wy) : null,
     confidence: { level, score, reasons },

@@ -81,3 +81,53 @@ export function pearson(a: number[], b: number[]): number | null {
   for (let i = 0; i < n; i++) { sab += (a[i] - ma) * (b[i] - mb); saa += (a[i] - ma) ** 2; sbb += (b[i] - mb) ** 2; }
   return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : null;
 }
+
+/** Predicción de cada año con un modelo ajustado SIN ese año (validación retrospectiva). */
+export function looPredictions(X: number[][], y: number[]): (number | null)[] {
+  return y.map((_, i) => {
+    const c = ols(X.filter((_, k) => k !== i), y.filter((_, k) => k !== i));
+    return c ? predict(c, X[i]) : null;
+  });
+}
+
+/**
+ * Años análogos: para el año i, los k años más parecidos (distancia euclídea sobre variables estandarizadas
+ * con la media y desvío de los OTROS años) y la predicción es el promedio de su aporte.
+ */
+export function analogPredict(Xtrain: number[][], ytrain: number[], x: number[], k = 5): { pred: number; years: number[] } | null {
+  if (Xtrain.length < k + 2) return null;
+  const p = x.length;
+  const mu = Array.from({ length: p }, (_, j) => Xtrain.reduce((a, r) => a + r[j], 0) / Xtrain.length);
+  const sd = Array.from({ length: p }, (_, j) => Math.sqrt(Xtrain.reduce((a, r) => a + (r[j] - mu[j]) ** 2, 0) / Xtrain.length) || 1);
+  const d = Xtrain.map((r, i) => ({ i, d: Math.sqrt(r.reduce((a, v, j) => a + ((v - x[j]) / sd[j]) ** 2, 0)) }));
+  d.sort((a, b) => a.d - b.d);
+  const near = d.slice(0, k).map((z) => z.i);
+  return { pred: near.reduce((a, i) => a + ytrain[i], 0) / k, years: near };
+}
+
+export interface Skill { n: number; mae: number; mape: number; bias: number; sdErr: number; rmse: number; coverage80: number | null }
+
+/** Métricas de validación retrospectiva a partir de predicciones fuera de muestra. `halfWidth` = medio ancho del intervalo. */
+export function skill(y: number[], pred: (number | null)[], halfWidth: number | null): Skill | null {
+  const e: number[] = [], rel: number[] = [];
+  let inside = 0;
+  y.forEach((v, i) => {
+    const p = pred[i];
+    if (p == null) return;
+    e.push(p - v);
+    if (v > 0) rel.push(Math.abs(p - v) / v);
+    if (halfWidth != null && Math.abs(p - v) <= halfWidth) inside++;
+  });
+  const n = e.length;
+  if (n < 5) return null;
+  const bias = e.reduce((a, b) => a + b, 0) / n;
+  return {
+    n,
+    mae: e.reduce((a, b) => a + Math.abs(b), 0) / n,
+    mape: rel.length ? rel.reduce((a, b) => a + b, 0) / rel.length : NaN,
+    bias,
+    sdErr: Math.sqrt(e.reduce((a, b) => a + (b - bias) ** 2, 0) / Math.max(1, n - 1)),
+    rmse: Math.sqrt(e.reduce((a, b) => a + b * b, 0) / n),
+    coverage80: halfWidth != null ? inside / n : null,
+  };
+}

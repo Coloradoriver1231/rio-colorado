@@ -113,24 +113,27 @@ describe("modelo completo con datos simulados", () => {
     expect(m.estimate).toBeNull();
     expect(m.confidence.level).toBe("insuficiente");
     expect(m.years.at(-1)!.wy).toBe(2026); // abril–julio 2026 ya completo en septiembre
-    expect(m.chosen).toBe("SWE");
-    expect(m.models[0].fit!.looR2).toBeGreaterThan(0.99);
+    expect(m.chosen).not.toBeNull();
+    expect(m.models.find((x) => x.name === "SWE")!.looR2!).toBeGreaterThan(0.99);
+    expect(m.models.some((x) => x.kind === "años análogos")).toBe(true);
+    expect(m.retro.length).toBeGreaterThan(30);
     expect(m.climatology.n).toBe(30);
   });
   it("en temporada: estimación con rango y confianza", async () => {
+    const kOf = (y: number) => 5 + ((y * 37) % 29); // SWE "aleatorio" por año, sin tendencia
     const stations = Array.from({ length: 12 }, (_, i) => ({ stationTriplet: `${i}:CO:SNTL`, name: `S${i}`, huc: "140100010101", elevation: 10000, latitude: 39, longitude: -106 }));
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       const ok = (b: any) => new Response(typeof b === "string" ? b : JSON.stringify(b), { status: 200 });
       if (url.includes("/stations?")) return ok(stations);
       if (url.includes("/csv/34.csv")) {
         let c = "datetime,x\n";
-        for (let y = 1990; y <= 2025; y++) for (let t = Date.parse(`${y}-04-01`); t <= Date.parse(`${y}-07-31`); t += 86400e3) c += `${new Date(t).toISOString().slice(0, 10)},${(200000 * (y - 1985) + (y % 3) * 50000) / 122}\n`;
+        for (let y = 1990; y <= 2025; y++) for (let t = Date.parse(`${y}-04-01`); t <= Date.parse(`${y}-07-31`); t += 86400e3) c += `${new Date(t).toISOString().slice(0, 10)},${(200000 * kOf(y) + (y % 3) * 50000) / 122}\n`;
         return ok(c);
       }
       if (url.includes("/data?")) {
         const d = /endDate=(\d{4}-\d{2}-\d{2})/.exec(url)![1];
         const wy = Number(d.slice(0, 4)) + (Number(d.slice(5, 7)) >= 10 ? 1 : 0);
-        const k = wy >= 2026 ? 20 : wy - 1985;
+        const k = wy >= 2026 ? 20 : kOf(wy);
         return ok(stations.map((s, i) => ({ stationTriplet: s.stationTriplet, data: [
           { stationElement: { elementCode: "WTEQ" }, values: [{ date: d, value: k * (1 + i / 10) }] },
           { stationElement: { elementCode: "PREC" }, values: [{ date: d, value: 10 + ((wy * 7) % 11) }] },
@@ -147,6 +150,9 @@ describe("modelo completo con datos simulados", () => {
     expect(m.estimate!.central).toBeGreaterThan(3.5e6);
     expect(m.estimate!.central).toBeLessThan(4.5e6);
     expect(["alta", "media"]).toContain(m.confidence.level);
+    const ch = m.models.find((x) => x.name === m.chosen)!;
+    expect(ch.skill!.coverage80).not.toBeNull();
+    expect(ch.skill!.n).toBeGreaterThanOrEqual(30);
   });
 });
 

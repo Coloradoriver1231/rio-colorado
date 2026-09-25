@@ -36,7 +36,14 @@ export function pickPoints(stations: Station[] | null | undefined): Point[] {
 /* ------------------------------------------------------------------ 10 días */
 export interface Weather10 {
   source: string; fetchedAt: string; days: string[];
-  regions: { name: string; points: number; snowCm: (number | null)[]; precMm: (number | null)[]; tmin: (number | null)[]; tmax: (number | null)[]; totalSnowCm: number | null; totalPrecMm: number | null }[];
+  regions: {
+    name: string; points: number; pointNames: string[]; pointElevM: (number | null)[];
+    snowCm: (number | null)[]; precMm: (number | null)[]; rainMm: (number | null)[]; snowWaterMm: (number | null)[];
+    tmin: (number | null)[]; tmax: (number | null)[];
+    totalSnowCm: number | null; totalPrecMm: number | null; totalSnowWaterMm: number | null;
+    /** subtotales por horizonte: días 1–3, 4–5, 6–7, 8–10 */
+    blocks: { label: string; precMm: number | null; snowCm: number | null }[];
+  }[];
 }
 
 const mean = (xs: (number | null | undefined)[]) => {
@@ -52,8 +59,20 @@ export function aggregateWeather(points: Point[], raw: any): Weather10 | null {
     const idx = points.map((p, i) => (p.region === name ? i : -1)).filter((i) => i >= 0 && list[i]?.daily);
     const col = (k: string) => days.map((_, d) => mean(idx.map((i) => list[i].daily[k]?.[d])));
     const snowCm = col("snowfall_sum"), precMm = col("precipitation_sum");
+    const rain = col("rain_sum"), showers = col("showers_sum");
+    const rainMm = days.map((_, d) => (rain[d] == null && showers[d] == null ? null : (rain[d] ?? 0) + (showers[d] ?? 0)));
+    // Open-Meteo: precipitation_sum = lluvia + chaparrones + nieve (en agua). La parte "nieve" en agua sale por diferencia.
+    const snowWaterMm = days.map((_, d) => (precMm[d] == null || rainMm[d] == null ? null : Math.max(0, precMm[d]! - rainMm[d]!)));
     const tot = (a: (number | null)[]) => (a.every((x) => x == null) ? null : a.reduce<number>((s, x) => s + (x ?? 0), 0));
-    return { name, points: idx.length, snowCm, precMm, tmin: col("temperature_2m_min"), tmax: col("temperature_2m_max"), totalSnowCm: tot(snowCm), totalPrecMm: tot(precMm) };
+    const block = (from: number, to: number, a: (number | null)[]) => tot(a.slice(from, to));
+    const blocks = [[0, 3, "días 1–3"], [3, 5, "días 4–5"], [5, 7, "días 6–7"], [7, 10, "días 8–10"]].map(([f, t, label]) => ({
+      label: label as string, precMm: block(f as number, t as number, precMm), snowCm: block(f as number, t as number, snowCm),
+    }));
+    return {
+      name, points: idx.length, pointNames: idx.map((i) => points[i].name), pointElevM: idx.map((i) => points[i].elevM),
+      snowCm, precMm, rainMm, snowWaterMm, tmin: col("temperature_2m_min"), tmax: col("temperature_2m_max"),
+      totalSnowCm: tot(snowCm), totalPrecMm: tot(precMm), totalSnowWaterMm: tot(snowWaterMm), blocks,
+    };
   });
   return { source: "Open-Meteo (modelos meteorológicos globales, selección automática)", fetchedAt: new Date().toISOString(), days, regions };
 }
@@ -63,7 +82,7 @@ export async function weather10(points: Point[]): Promise<Weather10 | null> {
   const params = new URLSearchParams({
     latitude: points.map((p) => p.lat.toFixed(3)).join(","),
     longitude: points.map((p) => p.lon.toFixed(3)).join(","),
-    daily: "snowfall_sum,precipitation_sum,temperature_2m_max,temperature_2m_min",
+    daily: "snowfall_sum,precipitation_sum,rain_sum,showers_sum,temperature_2m_max,temperature_2m_min",
     timezone: "America/Denver",
     forecast_days: "10",
   });

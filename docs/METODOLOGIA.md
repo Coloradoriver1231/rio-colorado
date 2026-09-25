@@ -57,3 +57,22 @@ El monitor no emite alertas. Hay dos cosas distintas y así se rotulan:
 | SWE / precipitación | % sólo con mediana significativa; ventanas cruzando el 1-oct correctas | Nuevo |
 
 Rótulos de calidad en la interfaz: sin marca = **real**, `parcial`, `estimado`, `sin datos`.
+
+## Auditoría del módulo de nieve (especificación del 25-sep-2026)
+
+| Punto | Resultado |
+|---|---|
+| Pronóstico oficial "Seco 167 / Central 370 / Húmedo 925 hm³, normal 4.157 hm³" | **Era un error de la interfaz.** Esos números son la publicación del 1-jun para el período **1-jun a 31-jul** (135 / 300 / 750 kaf, normal 3.370 kaf × 1,2335). Se mostraban bajo el título "abril–julio". Corregido: la tarjeta usa la última publicación del período completo 1-abr→31-jul (la del 1-abr: 605 / 1.620 / 2.800 kaf, normal 6.130 kaf) y las posteriores se listan aparte como "otro período, no comparable". |
+| % de SWE con mediana ≈ 0 | No se calcula: si la mediana promedio de la cuenca es < 1" (25 mm) se muestra "—". No hay división por cero. |
+| Precipitación del año | PREC de SNOTEL = acumulado desde el 1-oct (water year), pulgadas → mm. Estaciones con dato en los últimos 3 días; sin dato = fuera del promedio (nunca 0). Referencia: mediana 1991–2020 del mismo día que publica NRCS. |
+| 7 y 30 días "% del promedio de esas fechas" | Correcto: compara la ventana actual contra el promedio 1991–2020 de la **misma ventana** (diferencia de promedios acumulados diarios), no contra el promedio anual. Cruce del 1-oct tratado. |
+| Promedio entre estaciones | Promedio simple; % = Σ valores ÷ Σ medianas (índice de cuenca de NRCS). No se cambió. Limitaciones y alternativas (altura, área, SNODAS) documentadas en la interfaz. |
+| Cobertura | Esperadas = SNOTEL activas en NRCS para la cuenca; se informan con dato (≤ 3 días), desactualizadas, sin observación y con error de consulta. |
+| Subcuencas | Se agrupan en Cuenca Alta (aporta a Powell) y Cuenca Baja (referencia). Antes aparecían mezcladas. |
+| Open-Meteo `snowfall_sum` | "Suma diaria de nevada", en cm. La documentación dice "para el equivalente en agua en mm, dividir por 7" y a la vez da el ejemplo "7 cm de nieve = 10 mm de agua": son contradictorios. Por eso el monitor ya no usa los cm para nada cuantitativo: muestra la precipitación en agua y la parte nieve en agua = `precipitation_sum − rain_sum − showers_sum` (definición de Open-Meteo: precipitación = lluvia + chaparrones + nevada). Los cm quedan como referencia aproximada. |
+| "Puntos: 3" | = 3 estaciones SNOTEL (las más altas de la subcuenca) donde se pide el pronóstico; se listan por nombre. Advertencia: representan zonas altas, no el promedio de la subcuenca. |
+| Incertidumbre por horizonte | Subtotales días 1–3, 4–5, 6–7, 8–10 con descripción cualitativa; no se inventan porcentajes de confianza. |
+| NOAA CPC | Probabilidad de tercil (seco / normal / húmedo); temperatura separada; no se traduce "más cálido" en "menos agua". |
+| Estimación del monitor | Se agregaron **años análogos** y la variable "aporte del año anterior" (aproximación de humedad de la cuenca), y la **validación retrospectiva** de todos los métodos: error absoluto medio, error relativo, sesgo, dispersión y cobertura del rango (método elegido). La validación al 25-sep no tiene sentido (no hay nieve): fuera de 1-oct→1-abr se muestra la validación al 1-abr y la confianza queda "insuficiente". |
+| Doble conteo SWE + precipitación | Nunca se suman. En la regresión conjunta cada una tiene su coeficiente; al estar correlacionadas, sólo se elige si valida mejor fuera de muestra. Los pronósticos (10 días, CPC) no entran al modelo. |
+| Nieve → Powell | Se explicita qué eslabón es medido, cuál es estadístico (correlación) y cuál es balance de masa. |
