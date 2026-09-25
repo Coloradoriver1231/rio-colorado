@@ -28,6 +28,11 @@ Fechas: NRCS y USBR publican fechas locales ("YYYY-MM-DD"); se comparan como tex
    - No se usan temperatura ni humedad del suelo (el oficial sí). El estado de los embalses no aplica: el volumen es no regulado.
 3. **Confianza** (reglas fijas): 🔴 insuficiente fuera de 1-oct→1-abr, cobertura < 50 % o R² validación < 0,30. Si no, puntos: cobertura ≥ 80 % (+1); R² val ≥ 0,7 (+2) / ≥ 0,5 (+1); dentro del rango histórico (+1) o extrapolación (−1); ≤ 45 días al 1-abr (+1), > 90 días (−1); < 25 años (−1). 🟢 ≥ 4, 🟡 2–3, 🟠 ≤ 1.
 
+## Lo que viene (pronósticos)
+- **10 días** (Open-Meteo, modelos globales, no oficial): `snowfall_sum` (cm de nieve nueva, altura) y `precipitation_sum` (mm de agua, incluye la nieve) en las 3 SNOTEL más altas de cada subcuenca de la Cuenca Alta, usando su altura real para corregir la temperatura. Promedio por subcuenca. No se suman nieve y precipitación.
+- **3 meses** (NOAA CPC, oficial): se consultan los polígonos de las perspectivas de precipitación y temperatura (servicio ArcGIS de NOAA) para 4 períodos y se ubica el punto central de 5 zonas nevadas. CPC dibuja contornos 33/40/50/60… %: el valor es el límite inferior del rango. Fuera de todo polígono o "EC" = igual probabilidad. Son probabilidades de caer en el tercio superior/inferior, no cantidades.
+- Ninguno de los dos entra en la "Estimación del monitor" (que usa sólo lo medido).
+
 ## "Alertas"
 El monitor no emite alertas. Hay dos cosas distintas y así se rotulan:
 - **Estado relativo histórico** (propio): "Vs. historia" de embalses, colores de nieve vs. mediana. Clasificación estadística.

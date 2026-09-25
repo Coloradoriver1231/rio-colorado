@@ -233,3 +233,6 @@ footer { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 18
 .method h4 { margin: 12px 0 4px; }
 .method li { margin: 3px 0; }
 .sub-h { margin: 12px 0 0; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+.cpc td .sub { display: block; margin-top: 3px; }
+.cpc td { vertical-align: top; }
+.restable th.num { text-align: right; }

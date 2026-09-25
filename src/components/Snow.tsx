@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { ModelOut, SnowStatus } from "../../netlify/lib/snow";
 import { fdate, num, pct, vol, type Units } from "../lib/units";
 import EChart, { baseOption, theme } from "./EChart";
+import Outlook from "./Outlook";
 
 export type SnowState = { state: "loading" | "ok" | "error"; status: SnowStatus | null; model: ModelOut | null; error?: string };
 
@@ -93,7 +94,7 @@ export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
   }, [m, u]);
 
   if (snow.state === "loading") return <section className="card"><h2>Nieve y lluvia</h2><p className="muted">Cargando datos de SNOTEL…</p></section>;
-  if (!s && !m) return <section className="card"><h2>Nieve y lluvia</h2><p className="note warn">{snow.error || "Sin datos todavía."}</p></section>;
+  if (!s && !m) return <><section className="card"><h2>Nieve y lluvia</h2><p className="note warn">{snow.error || "Sin datos todavía."}</p></section><Outlook u={u} /></>;
 
   const A = s?.basins.alta, B = s?.basins.baja;
   const latest = s?.forecasts.length ? s.forecasts[s.forecasts.length - 1] : null;
@@ -150,6 +151,8 @@ export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
           <p className="note">Colores: clasificación estadística propia respecto de la mediana 1991–2020 (&lt; 70 % muy bajo · 70–90 % bajo · 90–110 % normal · 110–130 % alto · &gt; 130 % muy alto). No son alertas oficiales. "—" = sin nieve estacional para comparar.</p>
         </section>
       )}
+
+      <Outlook u={u} />
 
       <section className="card">
         <h2>Aporte de primavera–verano a Lake Powell (abril–julio)</h2>

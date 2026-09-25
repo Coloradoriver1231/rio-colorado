@@ -11,6 +11,8 @@ Las funciones de Netlify hacen de proxy y dejan las respuestas cacheadas en el C
 
 - **Nieve y lluvia**: NRCS SNOTEL (SWE, precipitación, normales 1991–2020) + pronóstico oficial abril–julio de Powell (NRCS/CBRFC) + "Estimación del monitor" (regresión documentada en `docs/METODOLOGIA.md`). `/api/snow`, con funciones programadas `snow-refresh` (cada 3 h) y `snow-model` (1 vez por día).
 
+- **Lo que viene**: pronóstico 10 días de nieve y precipitación (Open-Meteo, no oficial) en las SNOTEL más altas + perspectiva de 3 meses de NOAA CPC (oficial, probabilidades). `/api/outlook`.
+
 Documentación: `docs/USGS-MIGRACION.md` (paso de WaterServices a la API nueva) y `docs/METODOLOGIA.md` (temporadas, estimación, confianza y auditoría de cálculos).
 
 ## Publicar en Netlify
