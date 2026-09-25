@@ -5,6 +5,7 @@ import { ago, type Units } from "./lib/units";
 import { RESERVOIRS, useData, useSnow } from "./lib/useData";
 import Snow from "./components/Snow";
 import Boundary from "./components/Boundary";
+import { StationModal } from "./components/Stations";
 import Detail from "./components/Detail";
 import Flows from "./components/Flows";
 import Overview from "./components/Overview";
@@ -37,6 +38,7 @@ export default function App() {
     return (TABS.some((t) => t.id === h) ? h : "resumen") as Tab;
   });
   const [open, setOpen] = useState<number | null>(null);
+  const [station, setStation] = useState<string | null>(null);
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
   useEffect(() => { save("units", u); }, [u]);
@@ -81,12 +83,13 @@ export default function App() {
         {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} />}
         {tab === "balance" && <Flows views={views} u={u} onOpen={setOpen} />}
         {tab === "rios" && <Rivers gauges={gauges} u={u} />}
-        {tab === "nieve" && <Snow snow={snow} u={u} />}
-        {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} snow={snow.status} u={u} onOpen={setOpen} />}
+        {tab === "nieve" && <Snow snow={snow} u={u} onStation={setStation} />}
+        {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} snow={snow.status} u={u} onOpen={setOpen} onStation={setStation} />}
         {tab === "fuentes" && <Sources />}
         </Boundary>
       </main>
-      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v9 · 25-sep-2026</span></footer>
+      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v10 · 25-sep-2026</span></footer>
+      {station && <StationModal id={station} u={u} onClose={() => setStation(null)} curWy={snow.status?.wy ?? new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)} />}
       {openView && <Detail v={openView} u={u} onClose={() => setOpen(null)} />}
     </div>
   );

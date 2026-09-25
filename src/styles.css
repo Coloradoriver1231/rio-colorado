@@ -251,3 +251,4 @@ footer { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 18
 .dot-alta { color: var(--good); } .dot-media { color: var(--warn); } .dot-baja { color: var(--out); } .dot-insuficiente { color: var(--bad); }
 .scen-i.bad { border-top-color: var(--out); }
 footer .ver { font-size: 0.75rem; opacity: 0.7; }
+.drawer .seg { margin: 4px 0 12px; display: inline-flex; }

@@ -78,26 +78,48 @@ export function parseAwdbData(arr: any): Map<string, ByElem> {
 }
 
 /** Datos diarios de muchas estaciones, en tandas de `chunk` (en paralelo, `par` a la vez). */
-export async function awdbDaily(ids: string[], elements: string, begin: string, end: string, central: boolean, chunk = 25, par = 8, ms = 9000) {
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += chunk) chunks.push(ids.slice(i, i + chunk));
+/**
+ * Datos diarios de muchas estaciones, en tandas de `chunk` (de a `par` en paralelo).
+ * Si una tanda falla (timeout o error), se parte en dos y se reintenta mientras quede tiempo (`budgetMs`);
+ * una estación que falla sola dos veces queda como "error de consulta" (nunca como cero).
+ */
+export async function awdbDaily(ids: string[], elements: string, begin: string, end: string, central: boolean, chunk = 25, par = 8, ms = 9000, budgetMs = ms * 2) {
+  const t0 = Date.now();
+  const left = () => budgetMs - (Date.now() - t0);
+  const queue: { ids: string[]; tries: number }[] = [];
+  for (let i = 0; i < ids.length; i += chunk) queue.push({ ids: ids.slice(i, i + chunk), tries: 0 });
+  const chunks = queue.length;
   const out = new Map<string, ByElem>();
   let failed = 0;
   const failedIds: string[] = [];
-  const queue = [...chunks];
   const worker = async () => {
     for (let c = queue.shift(); c; c = queue.shift()) {
-      const j = await get(
-        `${AWDB}/data?stationTriplets=${encodeURIComponent(c.join(","))}&elements=${elements}&duration=DAILY&beginDate=${begin}&endDate=${end}` +
-          (central ? "&centralTendencyType=ALL" : ""),
-        "json", ms,
-      );
-      if (!Array.isArray(j)) { failed++; failedIds.push(...c); continue; }
-      for (const [k, v] of parseAwdbData(j)) out.set(k, { ...(out.get(k) || {}), ...v });
+      const timeout = Math.min(ms, left() - 200);
+      let j: any = null;
+      if (timeout >= 1000)
+        j = await get(
+          `${AWDB}/data?stationTriplets=${encodeURIComponent(c.ids.join(","))}&elements=${elements}&duration=DAILY&beginDate=${begin}&endDate=${end}` +
+            (central ? "&centralTendencyType=ALL" : ""),
+          "json", timeout,
+        );
+      if (Array.isArray(j)) {
+        for (const [k, v] of parseAwdbData(j)) out.set(k, { ...(out.get(k) || {}), ...v });
+        continue;
+      }
+      if (left() > 1500 && (c.ids.length > 1 || c.tries < 1)) {
+        await new Promise((ok) => setTimeout(ok, 300)); // pausa corta por si AWDB está limitando pedidos
+        if (c.ids.length > 1) {
+          const h = Math.ceil(c.ids.length / 2);
+          queue.push({ ids: c.ids.slice(0, h), tries: c.tries + 1 }, { ids: c.ids.slice(h), tries: c.tries + 1 });
+        } else queue.push({ ids: c.ids, tries: c.tries + 1 });
+        continue;
+      }
+      failed++;
+      failedIds.push(...c.ids);
     }
   };
   await Promise.all(Array.from({ length: par }, worker));
-  return { data: out, failedChunks: failed, chunks: chunks.length, failedIds };
+  return { data: out, failedChunks: failed, chunks, failedIds };
 }
 
 /* ----------------------------------------------------------- precipitación de ventanas */
@@ -154,7 +176,7 @@ export function aggregate(list: StationNow[], total: number): Agg {
 }
 
 /** Versión del formato guardado en Blobs: si cambia, lo guardado antes se descarta y se recalcula. */
-export const STATUS_V = 2;
+export const STATUS_V = 3;
 export const MODEL_V = 2;
 
 export interface SnowStatus {
@@ -163,6 +185,8 @@ export interface SnowStatus {
   stations: StationNow[]; missing: number; failedChunks: number;
   /** cobertura por cuenca: esperadas (activas en NRCS), con dato vigente (≤ 3 días), desactualizadas, sin observación en el período, error de consulta */
   coverage: Record<"alta" | "baja", { expected: number; withData: number; stale: number; noObs: number; error: number }>;
+  /** todas las estaciones esperadas con su estado (para la lista y el mapa) */
+  roster: { id: string; name: string; elev: number | null; lat: number; lon: number; subbasin: string; basin: "alta" | "baja"; state: "ok" | "stale" | "noObs" | "error"; last: string | null }[];
   /** fecha más reciente con dato (fecha local de las estaciones) */
   dataDate: string | null;
   /** lista completa de SNOTEL (se guarda para no volver a pedirla) */
@@ -192,7 +216,7 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
   const start = light ? addDays(today, -32) : addDays(wyStartOf(wy), -31); // un mes antes, para ventanas que cruzan el 1-oct
   const ids = stations.map((s) => s.id);
   const [main, depth, fc] = await Promise.all([
-    awdbDaily(ids, "WTEQ,PREC", start, today, true, 25, 8, light ? 5500 : 20000),
+    awdbDaily(ids, "WTEQ,PREC", start, today, true, light ? 15 : 20, light ? 8 : 6, light ? 4500 : 12000, light ? 7500 : 24000),
     awdbDaily(ids, "SNWD", addDays(today, -3), today, false, 100, 2, light ? 5000 : 9000),
     get(`${AWDB}/forecasts?stationTriplets=${POWELL_FORECAST_POINT}&beginPublicationDate=${wyStartOf(wy)}&endPublicationDate=${today}`, "json", light ? 5000 : 9000),
   ]);
@@ -201,18 +225,21 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
   let missing = 0;
   const failedSet = new Set(main.failedIds);
   const coverage = { alta: { expected: 0, withData: 0, stale: 0, noObs: 0, error: 0 }, baja: { expected: 0, withData: 0, stale: 0, noObs: 0, error: 0 } };
+  const roster: SnowStatus["roster"] = [];
   for (const s of stations) {
     const cv = coverage[s.basin];
     cv.expected++;
-    if (failedSet.has(s.id)) { cv.error++; missing++; continue; }
+    const base = { id: s.id, name: s.name, elev: s.elev, lat: s.lat, lon: s.lon, subbasin: s.subbasin, basin: s.basin };
+    if (failedSet.has(s.id)) { cv.error++; missing++; roster.push({ ...base, state: "error", last: null }); continue; }
     const d = main.data.get(s.id);
     const w = d?.WTEQ || [], p = d?.PREC || [];
     const lastW = w.length ? w[w.length - 1] : null, lastP = p.length ? p[p.length - 1] : null;
     const date = [lastW?.date, lastP?.date].filter(Boolean).sort().pop() || null;
     // dato vigente: de los últimos 3 días. Una estación sin dato NO se toma como cero: queda fuera del promedio.
-    if (!date) { cv.noObs++; missing++; continue; }
-    if (date < addDays(today, -3)) { cv.stale++; missing++; continue; }
+    if (!date) { cv.noObs++; missing++; roster.push({ ...base, state: "noObs", last: null }); continue; }
+    if (date < addDays(today, -3)) { cv.stale++; missing++; roster.push({ ...base, state: "stale", last: date }); continue; }
     cv.withData++;
+    roster.push({ ...base, state: "ok", last: date });
     const wv = lastW && lastW.date === date ? lastW : null;
     const pv = lastP && lastP.date === date ? lastP : null;
     const sd = depth.data.get(s.id)?.SNWD || [];
@@ -277,7 +304,7 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
 
   return {
     v: STATUS_V, builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy), light, ms: Date.now() - t0,
-    stations: list, missing, failedChunks: main.failedChunks, allStations: stations, coverage,
+    stations: list, missing, failedChunks: main.failedChunks, allStations: stations, coverage, roster,
     dataDate: list.length ? list.map((x) => x.date).sort().pop()! : null,
     basins, subbasins, season, forecasts,
     forecastError: Array.isArray(fc) ? null : "NRCS no devolvió pronósticos",

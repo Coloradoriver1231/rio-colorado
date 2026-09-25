@@ -58,9 +58,9 @@ function ZoomWatch({ onZoom }: { onZoom: (z: number) => void }) {
 }
 
 
-export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, snow, u, onOpen }: {
+export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, snow, u, onOpen, onStation }: {
   views: ResView[]; others: BasinRes[]; coordBySite: Map<number, [number, number]>; hdbSites: { site: number; lat: number; lon: number }[];
-  gauges: GaugesState; snow: SnowStatus | null; u: Units; onOpen: (s: number) => void;
+  gauges: GaugesState; snow: SnowStatus | null; u: Units; onOpen: (s: number) => void; onStation: (id: string) => void;
 }) {
   const [showRes, setShowRes] = useState(true);
   const [showRiv, setShowRiv] = useState(true);
@@ -144,17 +144,22 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
               icon={L.divIcon({ className: "mlabel-wrap", html: `<span class="mlabel" style="margin-left:${radius(p.cap) + 3}px">${esc(p.name.replace(/ Reservoir$/, ""))} ${pct(p.pct)}</span>`, iconSize: [0, 0] })}
             />
           ))}
+          {showSnow && (snow?.roster ?? []).filter((r) => r.state !== "ok").map((r) => (
+            <CircleMarker key={`x-${r.id}`} center={[r.lat, r.lon]} radius={4} pathOptions={{ color: "#6a6f78", weight: 1, fillColor: "#ffffff", fillOpacity: 0.6, dashArray: "2 2" }} eventHandlers={{ click: () => onStation(r.id) }}>
+              <Tooltip direction="top"><div className="mtip"><b>{r.name}</b><span>SNOTEL · {r.subbasin}</span><div>Sin dato vigente ({r.state === "error" ? "error de consulta" : r.state === "stale" ? `último dato ${r.last}` : "sin observación"}) · tocá para ver su historia</div></div></Tooltip>
+            </CircleMarker>
+          ))}
           {showSnow && snow?.stations.map((s) => {
             const p = s.swe != null && s.sweMed != null && s.sweMed >= 1 ? s.swe / s.sweMed : null;
             const mm = (x: number | null) => (x == null ? "—" : u === "metric" ? `${Math.round(x * 25.4)} mm` : `${x.toFixed(1)} in`);
             return (
-              <CircleMarker key={s.id} center={[s.lat, s.lon]} radius={4} pathOptions={{ color: "#16202e", weight: 0.6, fillColor: snowColor(p), fillOpacity: 0.9 }}>
+              <CircleMarker key={s.id} center={[s.lat, s.lon]} radius={5} pathOptions={{ color: "#16202e", weight: 0.6, fillColor: snowColor(p), fillOpacity: 0.9 }} eventHandlers={{ click: () => onStation(s.id) }}>
                 <Tooltip direction="top">
                   <div className="mtip">
                     <b>{s.name}</b><span>SNOTEL · {s.elev != null ? `${Math.round(u === "metric" ? s.elev * 0.3048 : s.elev)} ${u === "metric" ? "m" : "ft"}` : ""} · {s.subbasin}</span>
                     <div>SWE {mm(s.swe)} · mediana {mm(s.sweMed)}{p != null ? ` · ${Math.round(p * 100)} %` : ""}</div>
                     <div>Precip. año {mm(s.prec)}{s.prec != null && s.precMed ? ` (${Math.round((s.prec / s.precMed) * 100)} % de la mediana)` : ""} · 7 d {mm(s.p7)}</div>
-                    <div className="muted">{s.date}</div>
+                    <div className="muted">{s.date} · tocá para ver la temporada</div>
                   </div>
                 </Tooltip>
               </CircleMarker>

@@ -3,6 +3,7 @@ import type { Agg, ModelOut, SnowStatus } from "../../netlify/lib/snow";
 import { fdate, num, pct, vol, type Units } from "../lib/units";
 import EChart, { baseOption, theme } from "./EChart";
 import { Months, Next10, useOutlook } from "./Outlook";
+import Stations from "./Stations";
 
 export type SnowState = { state: "loading" | "ok" | "error"; status: SnowStatus | null; model: ModelOut | null; error?: string };
 
@@ -39,7 +40,7 @@ function Kind({ k }: { k: "obs" | "oficial" | "meteo" | "monitor" }) {
   return <span className={`kind kind-${k}`}>{L}</span>;
 }
 
-export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
+export default function Snow({ snow, u, onStation }: { snow: SnowState; u: Units; onStation: (id: string) => void }) {
   const t = theme();
   // tolera datos guardados por versiones anteriores (campos faltantes)
   const s = snow.status ? { ...snow.status, forecasts: snow.status.forecasts ?? [], subbasins: snow.status.subbasins ?? [], stations: snow.status.stations ?? [] } : null;
@@ -173,6 +174,15 @@ export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
             </ul>
           </details>
           <p className="src">Fuente: NRCS SNOTEL (AWDB), datos provisorios del año en curso · normales 1991–2020 de NRCS · consultado {localTime(s.builtAt)}.</p>
+        </section>
+      )}
+
+      {/* ---------------------------------------------------------------- estaciones */}
+      {s && (
+        <section className="card">
+          <div className="toolbar"><h2>📍 Estaciones SNOTEL — nieve en cada punto</h2><Kind k="obs" /></div>
+          <p className="muted">Cada fila es una estación automática en la montaña. Tocala para ver toda su temporada (nieve, altura de nieve y precipitación) comparada con su mediana, y el enlace a la ficha oficial de NRCS. También están en el Mapa (capa "Nieve (SNOTEL)").</p>
+          <Stations s={s} u={u} onOpen={onStation} />
         </section>
       )}
 
