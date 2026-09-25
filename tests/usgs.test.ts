@@ -33,30 +33,53 @@ describe("USGS", () => {
     expect(s).toEqual([[t, 120]]);
   });
 
-  it("todo bien: una consulta por tanda, guarda en Blobs", async () => {
-    const f = vi.fn(async (url: string) => ok(iv(sitesOf(url))));
-    vi.stubGlobal("fetch", f);
-    const h = (await import("../netlify/functions/usgs.mts")).default;
-    const r = await h();
-    const b = await r.json();
-    expect(r.status).toBe(200);
-    expect(Object.keys(b.gauges).length).toBe(IDS.length);
-    expect(f.mock.calls.every((c: any) => String(c[0]).includes("waterservices.usgs.gov/nwis/iv/"))).toBe(true);
-    expect(mem.get("usgs")).toBeTruthy();
-  });
+  const ogc = (v: number, unit = "ft^3/s") => ({ type: "FeatureCollection", features: [{ properties: { time: new Date(Date.now() - 3600e3).toISOString(), value: String(v), unit_of_measure: unit } }] });
 
-  it("waterservices con 503 → reintenta y usa la API nueva para lo que falta", async () => {
-    const f = vi.fn(async (url: string) => {
-      if (url.includes("waterservices")) return new Response("down", { status: 503 });
-      const id = /USGS-(\d+)/.exec(url)![1];
-      return ok({ features: [{ properties: { time: new Date(Date.now() - 3600e3).toISOString(), value: id === "09380000" ? "6260" : "10" } }] });
-    });
+  it("API nueva v1 es la fuente principal; waterservices no se consulta si v1 anda", async () => {
+    const f = vi.fn(async (url: string) => ok(ogc(/USGS-09380000/.test(url) ? 6260 : 10)));
     vi.stubGlobal("fetch", f);
     const h = (await import("../netlify/functions/usgs.mts")).default;
     const b = await (await h()).json();
-    expect(b.gauges["09380000"].series.at(-1)[1]).toBe(6260);
     expect(Object.keys(b.gauges).length).toBe(IDS.length);
-  }, 20000);
+    expect(b.gauges["09380000"].series.at(-1)[1]).toBe(6260);
+    const urls = f.mock.calls.map((c: any) => String(c[0]));
+    expect(urls.every((u) => u.includes("api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items"))).toBe(true);
+    expect(urls.some((u) => u.includes("waterservices"))).toBe(false);
+    expect(mem.get("usgs")).toBeTruthy();
+  });
+
+  it("v1 falla → v0; ambas fallan → waterservices (sólo antes del 22-feb-2027)", async () => {
+    const f = vi.fn(async (url: string) => {
+      if (url.includes("/v1/")) return new Response("x", { status: 404 });
+      if (url.includes("/v0/")) return /USGS-09380000/.test(url) ? ok(ogc(5000)) : new Response("x", { status: 500 });
+      return ok(iv(sitesOf(url)));
+    });
+    vi.stubGlobal("fetch", f);
+    const { fetchUsgs, LEGACY_SUNSET } = await import("../netlify/lib/usgs");
+    const r = await fetchUsgs(20000, Date.parse("2026-09-25T00:00:00Z"));
+    expect(r.gauges["09380000"].series[0][1]).toBe(5000);
+    expect(Object.keys(r.gauges).length).toBe(IDS.length);
+    f.mockClear();
+    const r2 = await fetchUsgs(20000, LEGACY_SUNSET + 1);
+    expect(r2.gauges["09380000"].series[0][1]).toBe(5000);
+    expect(Object.keys(r2.gauges).length).toBe(1);
+    expect(f.mock.calls.some((c: any) => String(c[0]).includes("waterservices"))).toBe(false);
+  }, 30000);
+
+  it("unidades métricas se descartan; 429 corta la ronda", async () => {
+    let n = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("waterservices")) return new Response("x", { status: 503 });
+      n++;
+      if (n === 1) return ok(ogc(10, "m^3/s"));
+      return new Response("slow down", { status: 429 });
+    }));
+    const { fetchUsgs } = await import("../netlify/lib/usgs");
+    const r = await fetchUsgs(8000, Date.parse("2026-09-25T00:00:00Z"));
+    expect(r.errors.some((e) => e.includes("unidad inesperada"))).toBe(true);
+    expect(r.errors.some((e) => e.includes("429"))).toBe(true);
+    expect(n).toBeLessThan(IDS.length);
+  }, 30000);
 
   it("USGS caído del todo → devuelve lo guardado marcado como viejo", async () => {
     mem.set("usgs", merge(null, { "09380000": { id: "09380000", name: "x", lat: null, lon: null, series: [[Date.now() - 7200e3, 5000]] } }, new Date(Date.now() - 3600e3)));

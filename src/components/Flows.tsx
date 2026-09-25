@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ResView } from "../lib/calc";
 import { flow, flowUnit, flowVal, num, vol, type Units } from "../lib/units";
+import QTag, { QLegend } from "./QTag";
 import EChart, { baseOption, theme } from "./EChart";
 
 export default function Flows({ views, u, onOpen }: { views: ResView[]; u: Units; onOpen: (s: number) => void }) {
@@ -47,13 +48,13 @@ export default function Flows({ views, u, onOpen }: { views: ResView[]; u: Units
             </thead>
             <tbody>
               {rows.map((v) => {
-                const d = v.in30af != null && v.out30af != null ? v.in30af - v.out30af : null;
+                const d = v.bal30.v;
                 return (
                   <tr key={v.cat.site} onClick={() => onOpen(v.cat.site)}>
                     <td><b>{v.cat.name}</b>{v.inflowEstimated && <span className="sub">entrada estimada</span>}</td>
-                    <td className="num">{vol(v.in30af, u)}</td>
-                    <td className="num">{vol(v.out30af, u)}</td>
-                    <td className={`num ${d == null ? "" : d >= 0 ? "pos" : "neg"}`}>{vol(d, u, true)}</td>
+                    <td className="num">{vol(v.in30af, u)}<QTag s={v.in30} /></td>
+                    <td className="num">{vol(v.out30af, u)}<QTag s={v.out30} /></td>
+                    <td className={`num ${d == null ? "" : d >= 0 ? "pos" : "neg"}`}>{vol(d, u, true)}<QTag s={v.bal30} /></td>
                     <td className={`num ${v.ch30 == null ? "" : v.ch30 >= 0 ? "pos" : "neg"}`}>{vol(v.ch30, u, true)}</td>
                     <td className="num hide-sm">{flow(v.inflowLast, u)} / {flow(v.releaseLast, u)}</td>
                   </tr>
@@ -62,7 +63,8 @@ export default function Flows({ views, u, onOpen }: { views: ResView[]; u: Units
             </tbody>
           </table>
         </div>
-        <p className="note">"Diferencia" (entró − salió) y "cambio real de volumen" no coinciden exactamente: la diferencia es evaporación, filtraciones, extracciones directas del lago y el redondeo del dato diario.</p>
+        <QLegend />
+        <p className="note">"Diferencia" (entró − salió, sólo días con ambos datos) y "cambio real de volumen" no coinciden exactamente: la diferencia es evaporación, filtraciones, extracciones directas del lago y el redondeo del dato diario.</p>
       </section>
     </>
   );

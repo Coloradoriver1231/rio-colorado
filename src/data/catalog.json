@@ -61,6 +61,7 @@
     { "site": 919, "name": "Lake Powell", "dam": "Glen Canyon", "river": "Colorado", "state": "UT/AZ", "sub": "principal", "major": true, "capacity_af": 23314000, "full_ft": 3700.0,
       "levels_ft": [
         { "ft": 3700, "label": "Embalse lleno" },
+        { "ft": 3525, "label": "Nivel de protección (sequía)" },
         { "ft": 3490, "label": "Mínimo para generar energía" },
         { "ft": 3370, "label": "Nivel muerto (no sale agua por la presa)" }
       ] },
@@ -68,6 +69,9 @@
     { "site": 921, "name": "Lake Mead", "dam": "Hoover", "river": "Colorado", "state": "NV/AZ", "sub": "baja", "major": true, "capacity_af": 26120000, "full_ft": 1229.0, "estimate_inflow": true,
       "levels_ft": [
         { "ft": 1229, "label": "Embalse lleno" },
+        { "ft": 1075, "label": "Escasez nivel 1 (Guías 2007)" },
+        { "ft": 1050, "label": "Escasez nivel 2" },
+        { "ft": 1025, "label": "Escasez nivel 3" },
         { "ft": 950, "label": "Mínimo para generar energía" },
         { "ft": 895, "label": "Nivel muerto (no sale agua por la presa)" }
       ] },

@@ -82,7 +82,7 @@ h3 { font-size: 1.02rem; margin: 18px 0 8px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; text-align: right; font-weight: 500; }
 
-.levelbar { position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 10px; min-height: 220px; }
+.levelbar { position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 10px; min-height: 360px; margin-bottom: 24px; }
 .lb-col { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--cup); overflow: hidden; }
 .lb-water { position: absolute; left: 0; right: 0; bottom: 0; background: var(--water); opacity: 0.85; }
 .lb-mark { position: absolute; left: 0; right: 0; height: 1px; background: var(--ink); opacity: 0.5; }
@@ -209,3 +209,27 @@ footer { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 18
 .mtip { display: grid; gap: 2px; font: 12px/1.35 "IBM Plex Sans", system-ui, sans-serif; }
 .mtip span, .mtip .muted { color: #6a6f78; }
 .leaflet-container { background: var(--cup); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.q { display: inline-block; margin-left: 5px; font-size: 0.68rem; font-weight: 600; padding: 0 6px; border-radius: 99px; vertical-align: 1px; white-space: nowrap; }
+.q-parcial { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.q-estimado { background: color-mix(in srgb, var(--water) 15%, transparent); color: var(--water); }
+.q-sin-datos { background: var(--cup); color: var(--muted); }
+
+/* ------------------------------ nieve ------------------------------ */
+.snowk { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0; }
+@media (max-width: 900px) { .snowk { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .snowk { grid-template-columns: 1fr; } }
+.scen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+@media (max-width: 640px) { .scen { grid-template-columns: 1fr; } }
+.scen-i { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; background: var(--surface); }
+.scen-i span { font-size: 0.8rem; color: var(--muted); }
+.scen-i b { font-size: 1.25rem; }
+.scen-i.big b { font-size: 1.6rem; color: var(--water); }
+.scen-i em { font-style: normal; font-size: 0.8rem; color: var(--muted); }
+.scen-i.bad { border-top: 3px solid var(--bad); } .scen-i.water { border-top: 3px solid var(--water); } .scen-i.good { border-top: 3px solid var(--good); }
+.conf { border-radius: 10px; padding: 10px 14px; margin: 8px 0; background: var(--cup); }
+.conf ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.86rem; color: var(--muted); }
+.method { margin-top: 16px; font-size: 0.9rem; }
+.method summary { cursor: pointer; font-weight: 600; color: var(--water); }
+.method h4 { margin: 12px 0 4px; }
+.method li { margin: 3px 0; }
+.sub-h { margin: 12px 0 0; font-size: 0.9rem; color: var(--muted); font-weight: 600; }

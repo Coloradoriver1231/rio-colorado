@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { CLS_LABEL, type ResView } from "../lib/calc";
+import { CLS_LABEL, smooth7, type ResView } from "../lib/calc";
+import QTag from "./QTag";
 import { addDays, doyIndex, type Pt } from "../shared/process";
 import { elev, elevUnit, elevVal, fdate, flow, flowUnit, flowVal, num, pct, vol, volUnit, volVal, type Units } from "../lib/units";
 import EChart, { baseOption, theme } from "./EChart";
@@ -62,7 +63,7 @@ export default function Detail({ v, u, onClose }: { v: ResView; u: Units; onClos
       yAxis: { ...b.yAxis, name: flowUnit(u), scale: false },
       dataZoom: [{ type: "inside", start: 70, end: 100 }],
       series: [
-        { name: v.inflowEstimated ? "Entrada (estimada, media 7 d)" : "Entrada", type: "line", data: map(v.inflowSeries, cf), symbol: "none", lineStyle: { color: t.water, width: 1.8 }, itemStyle: { color: t.water }, areaStyle: { color: t.waterSoft, opacity: 0.5 } },
+        { name: v.inflowEstimated ? "Entrada (estimada, media móvil 7 d)" : "Entrada", type: "line", data: map(v.inflowEstimated ? smooth7(v.inflowSeries) : v.inflowSeries, cf), symbol: "none", lineStyle: { color: t.water, width: 1.8 }, itemStyle: { color: t.water }, areaStyle: { color: t.waterSoft, opacity: 0.5 } },
         { name: "Salida", type: "line", data: map(v.releaseSeries, cf), symbol: "none", lineStyle: { color: t.out, width: 1.8 }, itemStyle: { color: t.out } },
       ],
     };
@@ -117,9 +118,9 @@ export default function Detail({ v, u, onClose }: { v: ResView; u: Units; onClos
               <div><span>Hace un año</span><b>{pct(v.pctLastYear, 1)}</b></div>
               <div><span>Cambio 1 / 7 / 30 días</span><b>{vol(v.ch1, u, true)} / {vol(v.ch7, u, true)} / {vol(v.ch30, u, true)}</b></div>
               <div><span>vs. mediana ({v.statYears ?? "—"} años)</span><b>{vol(v.vsMedian, u, true)} {v.cls && <span className={`tag ${v.cls}`}>{CLS_LABEL[v.cls]}</span>}</b></div>
-              <div><span>Entra: último día / 7 d{v.inflowEstimated ? " (estimada)" : ""}</span><b>{flow(v.inflowLast, u)} / {flow(v.inflow7, u)}</b></div>
-              <div><span>Sale: último día / 7 d</span><b>{flow(v.releaseLast, u)} / {flow(v.release7, u)}</b></div>
-              <div><span>Volumen entrado / salido 30 d</span><b>{vol(v.in30af, u)} / {vol(v.out30af, u)}</b></div>
+              <div><span>Entra: último día / prom. 7 d</span><b>{flow(v.inflowLast, u)} / {flow(v.inflow7, u)}<QTag q={v.inflowQ} /></b></div>
+              <div><span>Sale: último día / prom. 7 d</span><b>{flow(v.releaseLast, u)} / {flow(v.release7, u)}<QTag q={v.releaseQ} /></b></div>
+              <div><span>Volumen entrado / salido 30 d</span><b>{vol(v.in30af, u)}<QTag s={v.in30} /> / {vol(v.out30af, u)}<QTag s={v.out30} /></b></div>
               {v.pctBasis === "capacity" && <div><span>Capacidad {v.capSource === "nrcs" ? "útil (NRCS)" : "(USBR)"}</span><b>{vol(v.refMax, u)}</b></div>}
               {st && <div><span>Máximo registrado</span><b>{vol(st.max[1], u)} ({fdate(st.max[0])})</b></div>}
               {st && <div><span>Mínimo registrado</span><b>{vol(st.min[1], u)} ({fdate(st.min[0])})</b></div>}

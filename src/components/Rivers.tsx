@@ -51,7 +51,7 @@ export default function Rivers({ gauges, u }: { gauges: GaugesState; u: Units })
                     <span className="sub">
                       {last ? (
                         <>
-                          24 h: {d24 != null ? flow(last[1] - d24, u, true) : "—"} · prom. 7 d {flow(mean7, u)}
+                          24 h: {d24 != null ? flow(last[1] - d24, u, true) : "—"} · prom. 7 d (lecturas horarias, {s.length}/168 h) {flow(mean7, u)}
                           {stale && <> · <span className="tag bad">dato del {fdate(new Date(last[0]).toISOString().slice(0, 10))}</span></>}
                         </>
                       ) : gauges.state === "loading" ? "" : "sin datos recientes"}

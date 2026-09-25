@@ -3,6 +3,16 @@ import { CLS_LABEL } from "../lib/calc";
 import type { GaugesState } from "../lib/useData";
 import { elev, elevVal, fdate, flow, pct, signed, vol, type Units } from "../lib/units";
 import Schematic from "./Schematic";
+import QTag from "./QTag";
+
+/** Separa etiquetas que caerían encimadas (posiciones en %, mínimo `gap` entre una y otra, de arriba hacia abajo). */
+function spread(ys: number[], gap: number): number[] {
+  const order = ys.map((y, i) => [y, i] as const).sort((a, b) => a[0] - b[0]);
+  const out = new Array(ys.length);
+  let prev = -Infinity;
+  for (const [y, i] of order) { const v = Math.max(y, prev + gap); out[i] = v; prev = v; }
+  return out;
+}
 
 function LevelBar({ v, u }: { v: ResView; u: Units }) {
   const lv = v.cat.levels_ft;
@@ -21,8 +31,8 @@ function LevelBar({ v, u }: { v: ResView; u: Units }) {
         <div className="lb-now" style={{ top: `${y(cur)}%` }} />
       </div>
       <div className="lb-labels">
-        {lv.map((l) => (
-          <div key={l.ft} className="lb-label" style={{ top: `${y(l.ft)}%` }}>
+        {spread(lv.map((l) => y(l.ft)), 15).map((top, i) => ({ l: lv[i], top })).map(({ l, top }) => (
+          <div key={l.ft} className="lb-label" style={{ top: `${top}%` }}>
             <b>{elev(l.ft, u)}</b> {l.label}
             <span className="lb-diff">{signed(elevVal(v.elevation! - l.ft, u), 1)} {u === "metric" ? "m" : "ft"}</span>
           </div>
@@ -47,15 +57,16 @@ function BigLake({ v, u, onOpen }: { v: ResView; u: Units; onOpen: (s: number) =
             <dt>Hace un año</dt><dd>{pct(v.pctLastYear)}</dd>
             <dt>Cambio 30 días</dt><dd>{vol(v.ch30, u, true)}</dd>
             <dt>vs. mediana para la fecha</dt><dd>{vol(v.vsMedian, u, true)}{v.cls && <span className={`tag ${v.cls}`}>{CLS_LABEL[v.cls]}</span>}</dd>
-            <dt>Entra (prom. 7 d){v.inflowEstimated ? " *" : ""}</dt><dd>{flow(v.inflow7, u)}</dd>
-            <dt>Sale (prom. 7 d)</dt><dd>{flow(v.release7, u)}</dd>
+            <dt>Entra (prom. 7 d)</dt><dd>{flow(v.inflow7, u)}<QTag q={v.inflowQ} /></dd>
+            <dt>Sale (prom. 7 d)</dt><dd>{flow(v.release7, u)}<QTag q={v.releaseQ} /></dd>
             <dt>Cota hoy</dt><dd>{elev(v.elevation, u)}</dd>
             <dt>Cota 7 días</dt><dd>{elev(v.elevCh7, u, true)}</dd>
           </dl>
-          {v.inflowEstimated && <p className="note">* Entrada estimada por balance (salida + cambio de almacenamiento), sin evaporación.</p>}
+          {v.inflowEstimated && <p className="note">Entrada estimada por balance: salida + cambio de almacenamiento, sin descontar evaporación.</p>}
         </div>
         <LevelBar v={v} u={u} />
       </div>
+      {v.cat.levels_ft && <p className="note">Líneas: niveles de referencia oficiales de USBR, no alertas. {v.cat.site === 921 ? "Los niveles de escasez de las Guías Interinas 2007 se aplican según la proyección de agosto del 24-Month Study para el año siguiente, no por la cota del día; esas guías cubren hasta 2026 y desde 2027 rigen reglas nuevas." : "El nivel de protección (3.525 ft) es la referencia de las operaciones de respuesta a sequía de la Cuenca Alta."}</p>}
     </article>
   );
 }

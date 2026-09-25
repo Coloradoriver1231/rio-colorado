@@ -5,6 +5,7 @@ import { CircleMarker, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapE
 import catalog from "../data/catalog.json";
 import type { BasinRes, ResView } from "../lib/calc";
 import type { GaugesState } from "../lib/useData";
+import type { SnowStatus } from "../../netlify/lib/snow";
 import { ago, flow, pct, vol, type Units } from "../lib/units";
 
 interface G { id: string; name: string; role?: string; lat: number; lon: number }
@@ -22,6 +23,16 @@ function color(p: number | null) {
   if (p < 0.75) return "#5aa9e0";
   return "#1f6fa8";
 }
+/** Nieve vs. mediana: escala divergente marrón (poca) → blanco (normal) → azul (mucha). Clasificación estadística, no alerta. */
+function snowColor(p: number | null) {
+  if (p == null) return "#c9cdd3";
+  if (p < 0.7) return "#a6611a";
+  if (p < 0.9) return "#dfc27d";
+  if (p <= 1.1) return "#f5f5f5";
+  if (p <= 1.3) return "#80cdc1";
+  return "#018571";
+}
+
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const radius = (cap: number | null) => (cap ? Math.max(4, Math.min(22, 3 + 3.2 * Math.log10(cap / 1000))) : 4);
 
@@ -47,12 +58,13 @@ function ZoomWatch({ onZoom }: { onZoom: (z: number) => void }) {
 }
 
 
-export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, u, onOpen }: {
+export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, snow, u, onOpen }: {
   views: ResView[]; others: BasinRes[]; coordBySite: Map<number, [number, number]>; hdbSites: { site: number; lat: number; lon: number }[];
-  gauges: GaugesState; u: Units; onOpen: (s: number) => void;
+  gauges: GaugesState; snow: SnowStatus | null; u: Units; onOpen: (s: number) => void;
 }) {
   const [showRes, setShowRes] = useState(true);
   const [showRiv, setShowRiv] = useState(true);
+  const [showSnow, setShowSnow] = useState(false);
   const [labels, setLabels] = useState(true);
   const [zoom, setZoom] = useState(5);
 
@@ -91,6 +103,7 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
         <div className="filters checks">
           <label><input type="checkbox" checked={showRes} onChange={(e) => setShowRes(e.target.checked)} /> Embalses</label>
           <label><input type="checkbox" checked={showRiv} onChange={(e) => setShowRiv(e.target.checked)} /> Ríos (USGS)</label>
+          <label><input type="checkbox" checked={showSnow} onChange={(e) => setShowSnow(e.target.checked)} /> Nieve (SNOTEL)</label>
           <label><input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} /> Etiquetas</label>
         </div>
       </div>
@@ -131,6 +144,22 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
               icon={L.divIcon({ className: "mlabel-wrap", html: `<span class="mlabel" style="margin-left:${radius(p.cap) + 3}px">${esc(p.name.replace(/ Reservoir$/, ""))} ${pct(p.pct)}</span>`, iconSize: [0, 0] })}
             />
           ))}
+          {showSnow && snow?.stations.map((s) => {
+            const p = s.swe != null && s.sweMed != null && s.sweMed >= 1 ? s.swe / s.sweMed : null;
+            const mm = (x: number | null) => (x == null ? "—" : u === "metric" ? `${Math.round(x * 25.4)} mm` : `${x.toFixed(1)} in`);
+            return (
+              <CircleMarker key={s.id} center={[s.lat, s.lon]} radius={4} pathOptions={{ color: "#16202e", weight: 0.6, fillColor: snowColor(p), fillOpacity: 0.9 }}>
+                <Tooltip direction="top">
+                  <div className="mtip">
+                    <b>{s.name}</b><span>SNOTEL · {s.elev != null ? `${Math.round(u === "metric" ? s.elev * 0.3048 : s.elev)} ${u === "metric" ? "m" : "ft"}` : ""} · {s.subbasin}</span>
+                    <div>SWE {mm(s.swe)} · mediana {mm(s.sweMed)}{p != null ? ` · ${Math.round(p * 100)} %` : ""}</div>
+                    <div>Precip. año {mm(s.prec)}{s.prec != null && s.precMed ? ` (${Math.round((s.prec / s.precMed) * 100)} % de la mediana)` : ""} · 7 d {mm(s.p7)}</div>
+                    <div className="muted">{s.date}</div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
           {showRiv && list.map((g) => {
             const s = gauges.gauges[g.id]?.series || [];
             const last = s.length ? s[s.length - 1] : null;
@@ -156,6 +185,7 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
         <span><i style={{ background: color(0.9) }} /> &gt; 75 %</span>
         <span><i style={{ background: color(null) }} /> sin dato</span>
         <span><b className="gsq" /> estación de aforo (caudal actual)</span>
+        {showSnow && <span className="snowleg">SNOTEL, SWE vs. mediana: <i style={{ background: snowColor(0.5) }} />&lt;70 % <i style={{ background: snowColor(0.8) }} />70–90 <i style={{ background: snowColor(1) }} />90–110 <i style={{ background: snowColor(1.2) }} />110–130 <i style={{ background: snowColor(1.5) }} />&gt;130 % <i style={{ background: snowColor(null) }} />sin nieve para comparar</span>}
       </div>
       <p className="note">
         Tamaño del círculo ∝ capacidad del embalse. {pins.length} embalses en el mapa{noLoc.length ? ` (${noLoc.length} sin ubicación publicada: ${noLoc.join(", ")})` : ""}.

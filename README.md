@@ -5,9 +5,13 @@ Página web con el estado de toda la cuenca del río Colorado: embalses (% de ca
 ## Fuentes (todas oficiales y públicas)
 - **USBR hydrodata** (Bureau of Reclamation): almacenamiento, entrada, salida y cota diarios de ~46 embalses. `/api/usbr/<sitio>`
 - **NRCS AWDB** (USDA): lista completa de embalses de las cuencas HUC 14 y 15 con capacidad útil y almacenamiento diario (suma Granby, Dillon, Ruedi, Salt, Verde, San Carlos, etc.). `/api/basin`
-- **USGS**: caudal en tiempo real de 26 estaciones. `/api/usgs`. Una función programada (`usgs-refresh`, cada 15 min) guarda el último dato bueno en Netlify Blobs; si USGS se cae (p. ej. HTTP 503) la página muestra ese dato marcado como viejo. Si falla el servicio clásico, se usa la API nueva de USGS como respaldo.
+- **USGS** Water Data API (OGC v1, respaldo v0; el servicio viejo sólo hasta su baja el 22-feb-2027): caudal de 26 estaciones. `/api/usgs`. La función programada `usgs-refresh` (cada 15 min) guarda el último dato bueno en Netlify Blobs; si USGS se cae la página lo muestra marcado como viejo.
 
 Las funciones de Netlify hacen de proxy y dejan las respuestas cacheadas en el CDN (USBR 1 h, NRCS 3 h, USGS 15 min).
+
+- **Nieve y lluvia**: NRCS SNOTEL (SWE, precipitación, normales 1991–2020) + pronóstico oficial abril–julio de Powell (NRCS/CBRFC) + "Estimación del monitor" (regresión documentada en `docs/METODOLOGIA.md`). `/api/snow`, con funciones programadas `snow-refresh` (cada 3 h) y `snow-model` (1 vez por día).
+
+Documentación: `docs/USGS-MIGRACION.md` (paso de WaterServices a la API nueva) y `docs/METODOLOGIA.md` (temporadas, estimación, confianza y auditoría de cálculos).
 
 ## Publicar en Netlify
 1. Crear un repositorio nuevo en GitHub y subir el contenido de esta carpeta.
@@ -19,5 +23,3 @@ Las funciones de Netlify hacen de proxy y dejan las respuestas cacheadas en el C
 ## Tests
 `npm test`. `npm run build` corre los tests antes de compilar.
 
-## Pendiente conocido
-USGS da de baja `waterservices.usgs.gov` en el 1er trimestre de 2027; antes hay que pasar `netlify/functions/usgs.mts` a `api.waterdata.usgs.gov`.

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import catalog from "../data/catalog.json";
 import { CLS_LABEL, type BasinRes, type ResView } from "../lib/calc";
 import { elev, fdate, flow, pct, vol, type Units } from "../lib/units";
+import QTag, { QLegend } from "./QTag";
 
 type SortKey = "cuenca" | "pct" | "storage" | "net" | "vsMedian";
 
@@ -55,13 +56,13 @@ export default function Reservoirs({ views, others, basinState, u, onOpen }: { v
               <th className="num">Entra 7 d</th>
               <th className="num">Sale 7 d</th>
               <th className="num hide-sm">Balance 30 d</th>
-              <th className="hide-sm">Para la fecha</th>
+              <th className="hide-sm">Vs. historia</th>
               <th className="hide-sm">Dato</th>
             </tr>
           </thead>
           <tbody>
             {withData.map((v) => {
-              const bal30 = v.in30af != null && v.out30af != null ? v.in30af - v.out30af : null;
+              const bal30 = v.bal30.v;
               return (
                 <tr key={v.cat.site} onClick={() => onOpen(v.cat.site)} className={v.stale ? "stale" : ""}>
                   <td>
@@ -74,9 +75,9 @@ export default function Reservoirs({ views, others, basinState, u, onOpen }: { v
                   </td>
                   <td className="num">{vol(v.storage, u)}</td>
                   <td className="num hide-sm">{elev(v.elevation, u)}</td>
-                  <td className="num">{flow(v.inflow7, u)}{v.inflowEstimated ? " *" : ""}</td>
-                  <td className="num">{flow(v.release7, u)}</td>
-                  <td className={`num hide-sm ${bal30 == null ? "" : bal30 >= 0 ? "pos" : "neg"}`}>{vol(bal30, u, true)}</td>
+                  <td className="num">{flow(v.inflow7, u)}<QTag q={v.inflowQ} /></td>
+                  <td className="num">{flow(v.release7, u)}<QTag q={v.releaseQ} /></td>
+                  <td className={`num hide-sm ${bal30 == null ? "" : bal30 >= 0 ? "pos" : "neg"}`}>{vol(bal30, u, true)}<QTag s={v.bal30} /></td>
                   <td className="hide-sm">{v.cls ? <span className={`tag ${v.cls}`}>{CLS_LABEL[v.cls]}</span> : <span className="muted">—</span>}</td>
                   <td className="hide-sm">{fdate(v.lastDate)}{v.stale && <span className="tag bad">viejo</span>}</td>
                 </tr>
@@ -87,9 +88,9 @@ export default function Reservoirs({ views, others, basinState, u, onOpen }: { v
       </div>
       <p className="note">
         % lleno: sobre la capacidad publicada por USBR o, si no la hay, la capacidad útil de NRCS; con * sobre el máximo registrado en la serie. La marca en la barra es el mismo día del año pasado.
-        "Para la fecha": comparación con los percentiles 10/50/90 del mismo día en años anteriores. Entra/Sale: caudal medio diario promedio de 7 días. Balance 30 d = volumen que entró − volumen que salió (no incluye evaporación).
-        Entrada con * = estimada por balance.
+        "Vs. historia": clasificación estadística propia (percentiles 10/50/90 del mismo día en años anteriores); no es una alerta oficial. Entra/Sale 7 d: promedio simple de los 7 caudales medios diarios que publica USBR. Balance 30 d = Σ(entrada − salida) de los días con ambos datos × 1,9835 (no incluye evaporación).
       </p>
+      <QLegend />
       <Others list={others} state={basinState} q={q} u={u} />
       {without.length > 0 && (
         <details className="nodata">

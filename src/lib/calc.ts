@@ -66,6 +66,8 @@ export interface ResView {
   in30af: number | null;
   out30af: number | null;
   inflowSeries: Pt[]; // cfs diarios (estimada si inflowEstimated)
+  inflowQ: Q; releaseQ: Q; // calidad del promedio 7 d
+  in30: Stat; out30: Stat; bal30: Stat;
   releaseSeries: Pt[];
 }
 
@@ -91,6 +93,54 @@ export function valueAt(pts: Pt[] | undefined, date: string, tol = 3): number | 
   return daysBetween(pts[idx][0], date) <= tol ? pts[idx][1] : null;
 }
 
+/** Calidad de un valor mostrado: REAL (todos los días con dato), PARCIAL (faltan días), ESTIMADO (calculado por balance), SIN DATOS. */
+export type Q = "real" | "parcial" | "estimado" | "sin-datos";
+export interface Stat { v: number | null; days: number; n: number; q: Q }
+
+/** Promedio simple de los valores DIARIOS (caudal medio diario) en (end-n, end]. Exige al menos la mitad de los días. */
+export function meanStat(pts: Pt[] | undefined, end: string | null, n: number, estimated = false): Stat {
+  if (!pts || !end) return { v: null, days: 0, n, q: "sin-datos" };
+  const from = addDays(end, -n);
+  const v = pts.filter((p) => p[0] > from && p[0] <= end).map((p) => p[1]);
+  if (v.length < Math.ceil(n / 2)) return { v: null, days: v.length, n, q: "sin-datos" };
+  return { v: v.reduce((a, b) => a + b, 0) / v.length, days: v.length, n, q: estimated ? "estimado" : v.length === n ? "real" : "parcial" };
+}
+
+/**
+ * Volumen (acre-feet) = Σ caudal medio diario (cfs) × 1,983471 en (end-n, end]. NO se extrapola:
+ * si faltan días, se suma lo que hay y se marca PARCIAL; con menos del 80 % de los días no se calcula.
+ */
+export function volumeStat(pts: Pt[] | undefined, end: string | null, n: number, estimated = false): Stat {
+  if (!pts || !end) return { v: null, days: 0, n, q: "sin-datos" };
+  const from = addDays(end, -n);
+  const v = pts.filter((p) => p[0] > from && p[0] <= end);
+  if (v.length < Math.ceil(n * 0.8)) return { v: null, days: v.length, n, q: "sin-datos" };
+  return { v: v.reduce((a, p) => a + p[1], 0) * CFS_DAY_TO_AF, days: v.length, n, q: estimated ? "estimado" : v.length === n ? "real" : "parcial" };
+}
+
+/** Balance (entrada − salida) en acre-feet sobre los MISMOS días con ambos datos. */
+export function balanceStat(inflow: Pt[], release: Pt[], end: string | null, n: number, estimated: boolean): Stat {
+  if (!end) return { v: null, days: 0, n, q: "sin-datos" };
+  const from = addDays(end, -n);
+  const rel = new Map(release.filter((p) => p[0] > from && p[0] <= end));
+  let s = 0, d = 0;
+  for (const [day, x] of inflow) if (day > from && day <= end && rel.has(day)) { s += x - rel.get(day)!; d++; }
+  if (d < Math.ceil(n * 0.8)) return { v: null, days: d, n, q: "sin-datos" };
+  return { v: s * CFS_DAY_TO_AF, days: d, n, q: estimated ? "estimado" : d === n ? "real" : "parcial" };
+}
+
+/** Media móvil de 7 días, sólo para dibujar (la entrada estimada diaria es ruidosa). */
+export function smooth7(pts: Pt[]): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const from = addDays(pts[i][0], -7);
+    const win: number[] = [];
+    for (let k = i; k >= 0 && pts[k][0] > from; k--) win.push(pts[k][1]);
+    if (win.length >= 5) out.push([pts[i][0], win.reduce((a, b) => a + b, 0) / win.length]);
+  }
+  return out;
+}
+
 /** Promedio de los valores con fecha en (end-n, end]. Exige al menos la mitad de los días. */
 export function meanLast(pts: Pt[] | undefined, end: string, n: number): number | null {
   if (!pts) return null;
@@ -100,19 +150,15 @@ export function meanLast(pts: Pt[] | undefined, end: string, n: number): number 
   return v.reduce((a, b) => a + b, 0) / v.length;
 }
 
-/** Volumen (acre-feet) de un caudal medio diario (cfs) sumado en (end-n, end]. Exige ≥80 % de los días. */
+/** Volumen (acre-feet) sumado en (end-n, end], sin extrapolar. Ver volumeStat. */
 export function volumeLast(pts: Pt[] | undefined, end: string, n: number): number | null {
-  if (!pts) return null;
-  const from = addDays(end, -n);
-  const v = pts.filter((p) => p[0] > from && p[0] <= end);
-  if (v.length < Math.ceil(n * 0.8)) return null;
-  // se escala a n días si falta alguno
-  return (v.reduce((a, p) => a + p[1], 0) * CFS_DAY_TO_AF * n) / v.length;
+  return volumeStat(pts, end, n).v;
 }
 
 /**
- * Entrada estimada por balance: salida + cambio de almacenamiento (sin evaporación ni filtraciones,
- * por eso subestima un poco). Media móvil de 7 días porque el dato diario es ruidoso.
+ * Entrada estimada por balance, día por día: salida + cambio de almacenamiento del día (acre-feet → cfs).
+ * No descuenta evaporación ni infiltración (subestima un poco). Puede dar valores negativos en días con
+ * mucha evaporación o error de medición: NO se recortan, para no sesgar los promedios; se marca ESTIMADO.
  */
 export function estimateInflow(storage: Pt[], release: Pt[]): Pt[] {
   const rel = new Map(release);
@@ -125,14 +171,7 @@ export function estimateInflow(storage: Pt[], release: Pt[]): Pt[] {
     if (r == null) continue;
     raw.push([d, r + (s - s0) * AF_PER_DAY_TO_CFS]);
   }
-  const out: Pt[] = [];
-  for (let i = 0; i < raw.length; i++) {
-    const from = addDays(raw[i][0], -7);
-    const win = [];
-    for (let k = i; k >= 0 && raw[k][0] > from; k--) win.push(raw[k][1]);
-    if (win.length >= 5) out.push([raw[i][0], Math.max(0, win.reduce((a, b) => a + b, 0) / win.length)]);
-  }
-  return out;
+  return raw;
 }
 
 export function classify(v: number, p10: number, p50: number, p90: number): Cls {
@@ -190,8 +229,12 @@ export function derive(cat: ReservoirCat, data: UsbrResponse | null, state: ResV
   }
   const endIn = inflowSeries.length ? inflowSeries[inflowSeries.length - 1][0] : null;
   const endOut = releaseSeries.length ? releaseSeries[releaseSeries.length - 1][0] : null;
-  const inflow7 = endIn ? meanLast(inflowSeries, endIn, 7) : null;
-  const release7 = endOut ? meanLast(releaseSeries, endOut, 7) : null;
+  const in7 = meanStat(inflowSeries, endIn, 7, inflowEstimated);
+  const out7 = meanStat(releaseSeries, endOut, 7);
+  const inflow7 = in7.v, release7 = out7.v;
+  const in30 = volumeStat(inflowSeries, endIn, 30, inflowEstimated);
+  const out30 = volumeStat(releaseSeries, endOut, 30);
+  const bal30 = balanceStat(inflowSeries, releaseSeries, endIn && endOut ? (endIn < endOut ? endIn : endOut) : null, 30, inflowEstimated);
   const elevD = el?.last[0];
   const elev7 = el && elevD ? valueAt(el.recent, addDays(elevD, -7), 2) : null;
 
@@ -209,9 +252,10 @@ export function derive(cat: ReservoirCat, data: UsbrResponse | null, state: ResV
     releaseLast: endOut ? releaseSeries[releaseSeries.length - 1][1] : null,
     inflow7, release7, inflowEstimated,
     net7: inflow7 != null && release7 != null && endIn === endOut ? inflow7 - release7 : null,
-    in30af: endIn ? volumeLast(inflowSeries, endIn, 30) : null,
-    out30af: endOut ? volumeLast(releaseSeries, endOut, 30) : null,
+    in30af: in30.v,
+    out30af: out30.v,
     inflowSeries, releaseSeries,
+    inflowQ: in7.q, releaseQ: out7.q, in30, out30, bal30,
   };
 }
 

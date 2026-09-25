@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import catalog from "../data/catalog.json";
 import type { GaugeOut } from "../shared/process";
 import type { BasinRes, ReservoirCat, UsbrResponse } from "./calc";
+import type { SnowState } from "../components/Snow";
 
 export const RESERVOIRS = (catalog as any).reservoirs as ReservoirCat[];
 
@@ -99,4 +100,24 @@ export function useData() {
   }, [load]);
 
   return { res, gauges, basin, loadedAt, reload: load };
+}
+
+/** Nieve y precipitación (se actualiza en el servidor cada 3 h; acá se pide al abrir y cada hora). */
+export function useSnow() {
+  const [snow, setSnow] = useState<SnowState>({ state: "loading", status: null, model: null });
+  useEffect(() => {
+    let alive = true;
+    const go = () =>
+      getJson(`/api/snow?b=${hourBucket()}`)
+        .then(({ status, body }) => {
+          if (!alive) return;
+          if (status === 200 && body) setSnow({ state: "ok", status: body.status ?? null, model: body.model ?? null });
+          else setSnow((x) => ({ ...x, state: x.status || x.model ? "ok" : "error", error: body?.error || `HTTP ${status}` }));
+        })
+        .catch((e) => alive && setSnow((x) => ({ ...x, state: x.status || x.model ? "ok" : "error", error: String(e?.message || e) })));
+    go();
+    const t = setInterval(go, 3600e3);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return snow;
 }
