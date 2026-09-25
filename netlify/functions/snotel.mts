@@ -20,7 +20,7 @@ export default async (req: Request) => {
   const end = wy === cur ? today : addDays(`${wy}-10-01`, -1);
 
   const [r, list] = await Promise.all([
-    awdbDaily([id], "WTEQ,SNWD,PREC", begin, end, true, 1, 1, 9000, 9500),
+    awdbDaily([id], "WTEQ,SNWD,PREC,TAVG,TMAX,TMIN", begin, end, true, 1, 1, 9000, 9500),
     readJson<Station[]>("snotel-stations"),
   ]);
   const d = r.data.get(id);
@@ -30,7 +30,7 @@ export default async (req: Request) => {
   return json(
     {
       id, wy, begin, end, meta,
-      swe: d.WTEQ || [], depth: d.SNWD || [], prec: d.PREC || [],
+      swe: d.WTEQ || [], depth: d.SNWD || [], prec: d.PREC || [], tavg: d.TAVG || [], tmax: d.TMAX || [], tmin: d.TMIN || [],
       links: {
         nrcs: `https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=${num}`,
         report: `https://wcc.sc.egov.usda.gov/reportGenerator/view/customSingleStationReport/daily/${encodeURIComponent(id)}%7Cid=%22%22%7Cname/-30,0/WTEQ::value,WTEQ::median_1991,SNWD::value,PREC::value`,

@@ -4,6 +4,8 @@ import { basinTotals, derive, linkBasin, systemTotals } from "./lib/calc";
 import { ago, type Units } from "./lib/units";
 import { RESERVOIRS, useData, useSnow } from "./lib/useData";
 import Snow from "./components/Snow";
+import Projections from "./components/Projections";
+import Compact from "./components/Compact";
 import Boundary from "./components/Boundary";
 import { StationModal } from "./components/Stations";
 import Detail from "./components/Detail";
@@ -79,7 +81,7 @@ export default function App() {
       </nav>
       <main>
         <Boundary name={tab}>
-        {tab === "resumen" && <Overview views={views} tot={tot} btot={btot} gauges={gauges} u={u} onOpen={setOpen} />}
+        {tab === "resumen" && <><Overview views={views} tot={tot} btot={btot} gauges={gauges} u={u} onOpen={setOpen} /><Projections /><Compact u={u} /></>}
         {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} />}
         {tab === "balance" && <Flows views={views} u={u} onOpen={setOpen} />}
         {tab === "rios" && <Rivers gauges={gauges} u={u} />}
@@ -88,7 +90,7 @@ export default function App() {
         {tab === "fuentes" && <Sources />}
         </Boundary>
       </main>
-      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v10 · 25-sep-2026</span></footer>
+      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v11 · 25-sep-2026</span></footer>
       {station && <StationModal id={station} u={u} onClose={() => setStation(null)} curWy={snow.status?.wy ?? new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)} />}
       {openView && <Detail v={openView} u={u} onClose={() => setOpen(null)} />}
     </div>

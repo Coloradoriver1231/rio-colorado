@@ -65,7 +65,7 @@ export default function Stations({ s, u, onOpen }: { s: SnowStatus; u: Units; on
   );
 }
 
-type Detail = { id: string; wy: number; begin: string; end: string; meta: { name: string; elev: number | null; subbasin: string; lat: number; lon: number } | null; swe: Val[]; depth: Val[]; prec: Val[]; links: { nrcs: string; report: string } };
+type Detail = { id: string; wy: number; begin: string; end: string; meta: { name: string; elev: number | null; subbasin: string; lat: number; lon: number } | null; swe: Val[]; depth: Val[]; prec: Val[]; tavg?: Val[]; tmax?: Val[]; tmin?: Val[]; links: { nrcs: string; report: string } };
 
 /** Ficha de una estación: toda la temporada, con su mediana. */
 export function StationModal({ id, u, onClose, curWy, name }: { id: string; u: Units; onClose: () => void; curWy: number; name?: string }) {
@@ -113,6 +113,26 @@ export function StationModal({ id, u, onClose, curWy, name }: { id: string; u: U
     };
   }, [d, u]);
 
+  const tOpt = useMemo(() => {
+    const x = d.data;
+    if (!x?.tmax?.length && !x?.tavg?.length) return null;
+    const b = baseOption(t);
+    const c = (f: number) => Math.round((u === "metric" ? ((f - 32) * 5) / 9 : f) * 10) / 10;
+    const unit = u === "metric" ? "°C" : "°F";
+    return {
+      ...b,
+      yAxis: { ...b.yAxis, name: unit },
+      tooltip: { ...b.tooltip, valueFormatter: (v: number) => (v == null ? "—" : `${v} ${unit}`) },
+      series: [
+        { name: "Máxima", type: "line", data: (x.tmax || []).map((v) => [v.date, c(v.value)]), symbol: "none", lineStyle: { color: t.out, width: 1 }, itemStyle: { color: t.out } },
+        { name: "Media", type: "line", data: (x.tavg || []).map((v) => [v.date, c(v.value)]), symbol: "none", lineStyle: { color: t.ink, width: 1.4 }, itemStyle: { color: t.ink } },
+        { name: "Media histórica (1991–2020)", type: "line", data: (x.tavg || []).filter((v) => v.average != null).map((v) => [v.date, c(v.average!)]), symbol: "none", lineStyle: { color: t.muted, type: "dashed", width: 1 }, itemStyle: { color: t.muted } },
+        { name: "Mínima", type: "line", data: (x.tmin || []).map((v) => [v.date, c(v.value)]), symbol: "none", lineStyle: { color: t.water, width: 1 }, itemStyle: { color: t.water },
+          markLine: { symbol: "none", label: { formatter: "0 °C", color: t.muted }, lineStyle: { color: t.muted }, data: [{ yAxis: u === "metric" ? 0 : 32 }] } },
+      ],
+    };
+  }, [d, u]);
+
   const x = d.data;
   const last = <T extends Val>(a?: T[]) => (a && a.length ? a[a.length - 1] : null);
   const lw = last(x?.swe), ld = last(x?.depth), lp = last(x?.prec);
@@ -149,6 +169,7 @@ export function StationModal({ id, u, onClose, curWy, name }: { id: string; u: U
               SWE = agua guardada como nieve (lo que mide el colchón de nieve). Altura de nieve = centímetros de nieve en el suelo (eje derecho). Precipitación = todo lo que cayó desde el 1-oct, en agua. No se suman.
               Datos provisorios de NRCS; la mediana es la oficial 1991–2020 de la estación.
             </p>
+            {tOpt && <><h3>Temperatura del aire</h3><EChart option={tOpt} style={{ height: 220 }} /><p className="note">Con máximas sobre 0 °C la nieve puede empezar a derretirse; el deshielo depende también de la radiación solar, el viento y la humedad.</p></>}
             <p className="note"><a href={x.links.nrcs} target="_blank" rel="noreferrer">Ficha oficial de la estación (NRCS)</a> · <a href={x.links.report} target="_blank" rel="noreferrer">Tabla diaria de los últimos 30 días (NRCS)</a></p>
           </>
         )}

@@ -148,8 +148,10 @@ export interface StationNow {
   swe: number | null; sweMed: number | null; snwd: number | null;
   prec: number | null; precMed: number | null;
   p7: number | null; p7avg: number | null; p30: number | null; p30avg: number | null;
+  /** temperatura media del aire de los últimos 7 días (°F), su promedio histórico para esas fechas, y días con máxima > 0 °C */
+  t7: number | null; t7avg: number | null; warmDays: number | null; tDays: number;
 }
-export interface Agg { n: number; stations: number; swe: number | null; sweMed: number | null; swePct: number | null; prec: number | null; precMed: number | null; precPct: number | null;
+export interface Agg { t7: number | null; t7avg: number | null; nT: number; warmShare: number | null; n: number; stations: number; swe: number | null; sweMed: number | null; swePct: number | null; prec: number | null; precMed: number | null; precPct: number | null;
   p7: number | null; p7avg: number | null; p7Pct: number | null; n7: number; p30: number | null; p30avg: number | null; p30Pct: number | null; n30: number }
 
 /** "% de la mediana" sólo cuando la mediana de la cuenca es significativa (≥ 1 pulgada de SWE o precipitación). */
@@ -164,10 +166,18 @@ export function aggregate(list: StationNow[], total: number): Agg {
     return { v: sv / n, m: sm / n, pct: sm / n >= MIN_MED ? sv / sm : null, n };
   };
   const s = both((x) => [x.swe, x.sweMed]);
+  const tt = list.filter((x) => x.t7 != null);
+  const tta = tt.filter((x) => x.t7avg != null);
+  const wd = list.filter((x) => x.warmDays != null && x.tDays > 0);
   const p = both((x) => [x.prec, x.precMed]);
   const w7 = both((x) => [x.p7, x.p7avg]);
   const w30 = both((x) => [x.p30, x.p30avg]);
   return {
+    t7: tt.length ? tt.reduce((a, x) => a + x.t7!, 0) / tt.length : null,
+    // normal sólo sobre las mismas estaciones que tienen promedio histórico (si no son todas, se compara con ese subconjunto)
+    t7avg: tta.length && tta.length === tt.length ? tta.reduce((a, x) => a + x.t7avg!, 0) / tta.length : null,
+    nT: tt.length,
+    warmShare: wd.length ? wd.reduce((a, x) => a + x.warmDays! / x.tDays, 0) / wd.length : null,
     n: s.n, stations: total, swe: s.v, sweMed: s.m, swePct: s.pct, prec: p.v, precMed: p.m, precPct: p.pct,
     // en ventanas cortas la normal puede ser muy chica: % sólo si el promedio de la ventana es ≥ 0,2 pulgadas
     p7: w7.v, p7avg: w7.m, p7Pct: w7.m != null && w7.m >= 0.2 && w7.v != null ? w7.v / w7.m : null, n7: w7.n,
@@ -176,7 +186,7 @@ export function aggregate(list: StationNow[], total: number): Agg {
 }
 
 /** Versión del formato guardado en Blobs: si cambia, lo guardado antes se descarta y se recalcula. */
-export const STATUS_V = 3;
+export const STATUS_V = 4;
 export const MODEL_V = 2;
 
 export interface SnowStatus {
@@ -217,7 +227,8 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
   const ids = stations.map((s) => s.id);
   const [main, depth, fc] = await Promise.all([
     awdbDaily(ids, "WTEQ,PREC", start, today, true, light ? 15 : 20, light ? 8 : 6, light ? 4500 : 12000, light ? 7500 : 24000),
-    awdbDaily(ids, "SNWD", addDays(today, -3), today, false, 100, 2, light ? 5000 : 9000),
+    // altura de nieve y temperatura del aire (últimos 8 días); la temperatura trae el promedio 1991–2020 del día
+    awdbDaily(ids, "SNWD,TAVG,TMAX", addDays(today, -8), today, true, 50, 4, light ? 4500 : 9000, light ? 6000 : 15000),
     get(`${AWDB}/forecasts?stationTriplets=${POWELL_FORECAST_POINT}&beginPublicationDate=${wyStartOf(wy)}&endPublicationDate=${today}`, "json", light ? 5000 : 9000),
   ]);
 
@@ -242,7 +253,13 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
     roster.push({ ...base, state: "ok", last: date });
     const wv = lastW && lastW.date === date ? lastW : null;
     const pv = lastP && lastP.date === date ? lastP : null;
-    const sd = depth.data.get(s.id)?.SNWD || [];
+    const dd = depth.data.get(s.id);
+    const sd = dd?.SNWD || [];
+    const from7 = addDays(date, -7);
+    const ta = (dd?.TAVG || []).filter((x) => x.date > from7 && x.date <= date);
+    const tx = (dd?.TMAX || []).filter((x) => x.date > from7 && x.date <= date);
+    const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    const taAvg = ta.filter((x) => x.average != null);
     const sdv = sd.find((x) => x.date === date);
     list.push({
       id: s.id, name: s.name, elev: s.elev, lat: s.lat, lon: s.lon, subbasin: s.subbasin, basin: s.basin, date,
@@ -250,6 +267,10 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
       prec: pv ? pv.value : null, precMed: pv?.median ?? null,
       p7: windowPrecip(p, addDays(date, -7), date, (v) => v.value), p7avg: windowPrecip(p, addDays(date, -7), date, (v) => v.average),
       p30: windowPrecip(p, addDays(date, -30), date, (v) => v.value), p30avg: windowPrecip(p, addDays(date, -30), date, (v) => v.average),
+      // sólo con ≥ 5 de 7 días de dato
+      t7: ta.length >= 5 ? mean(ta.map((x) => x.value)) : null,
+      t7avg: taAvg.length >= 5 ? mean(taAvg.map((x) => x.average!)) : null,
+      warmDays: tx.length >= 5 ? tx.filter((x) => x.value > 32).length : null, tDays: tx.length,
     });
   }
 

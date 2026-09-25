@@ -105,7 +105,7 @@ export default function Schematic({ views, gauges, u, onOpen }: { views: ResView
       </svg></div>
       <figcaption>
         Esquema, no mapa a escala. Tamaño de cada taza ∝ capacidad; relleno = % actual; línea = mismo día del año pasado.
-        * = % del máximo registrado (USBR no publica capacidad en la fuente usada). Tocá una taza para ver el detalle.
+        * = % del máximo registrado (sin capacidad publicada por USBR ni NRCS). Tocá una taza para ver el detalle.
       </figcaption>
     </figure>
   );

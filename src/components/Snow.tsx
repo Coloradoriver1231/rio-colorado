@@ -4,6 +4,7 @@ import { fdate, num, pct, vol, type Units } from "../lib/units";
 import EChart, { baseOption, theme } from "./EChart";
 import { Months, Next10, useOutlook } from "./Outlook";
 import Stations from "./Stations";
+import OtherForecasts from "./OtherForecasts";
 
 export type SnowState = { state: "loading" | "ok" | "error"; status: SnowStatus | null; model: ModelOut | null; error?: string };
 
@@ -13,6 +14,8 @@ const depth = (inch: number | null | undefined, u: Units) =>
 const depthVal = (inch: number, u: Units) => (u === "metric" ? inch * 25.4 : inch);
 const depthUnit = (u: Units) => (u === "metric" ? "mm" : "pulgadas");
 const kaf = (v: number | null | undefined) => (v == null ? null : v * 1000); // kac_ft → acre-feet
+const temp = (f: number | null | undefined, u: Units) => (f == null ? "—" : u === "metric" ? `${num((f - 32) * 5 / 9, 1)} °C` : `${num(f, 1)} °F`);
+const tempDiff = (df: number, u: Units) => { const v = u === "metric" ? (df * 5) / 9 : df; return `${v > 0 ? "+" : v < 0 ? "−" : ""}${num(Math.abs(v), 1)} ${u === "metric" ? "°C" : "°F"}`; };
 const volNum = (af: number, u: Units) => (u === "metric" ? af * 0.001233481837548 : af);
 const volUnitTxt = (u: Units) => (u === "metric" ? "hm³" : "acre-feet");
 const localTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -194,6 +197,20 @@ export default function Snow({ snow, u, onStation }: { snow: SnowState; u: Units
             <Recent label="Últimos 7 días" v={A.p7} avg={A.p7avg} p={A.p7Pct} n={A.n7} u={u} />
             <Recent label="Últimos 30 días" v={A.p30} avg={A.p30avg} p={A.p30Pct} n={A.n30} u={u} />
           </div>
+          {A.t7 != null && (
+            <div className="kpis snowk two">
+              <div className="kpi">
+                <span className="kpi-label">Temperatura media del aire, últimos 7 días</span>
+                <span className="kpi-val sm">{temp(A.t7, u)}</span>
+                <span className="kpi-sub">{A.t7avg != null ? <>Promedio histórico de esas fechas: {temp(A.t7avg, u)} · diferencia <b>{tempDiff(A.t7 - A.t7avg, u)}</b></> : "Sin promedio histórico para comparar"} · {A.nT} estaciones</span>
+              </div>
+              <div className="kpi">
+                <span className="kpi-label">Días con máxima sobre 0 °C (últimos 7)</span>
+                <span className="kpi-val sm">{A.warmShare != null ? pct(A.warmShare) : "—"}</span>
+                <span className="kpi-sub">Promedio entre estaciones. Con máximas sobre 0 °C la nieve puede empezar a derretirse (depende también del sol y del viento).</span>
+              </div>
+            </div>
+          )}
           <p className="note">
             Se compara <b>la misma ventana de fechas</b> contra su promedio histórico 1991–2020: precipitación caída entre hoy−7 (o −30) y hoy, vs. el promedio de lo que cae en esas mismas fechas.
             Se usa el promedio (no la mediana) porque es aditivo: el promedio de la ventana = promedio acumulado hoy − promedio acumulado al inicio. Cruzando el 1-oct se suma el resto del año anterior + lo del nuevo. % sólo si el promedio de la ventana es ≥ 5 mm.
@@ -279,6 +296,12 @@ export default function Snow({ snow, u, onStation }: { snow: SnowState; u: Units
         ) : (
           <p className="note">{s?.forecastError ?? `Todavía no hay pronóstico oficial para el año hidrológico ${s?.wy ?? ""}: NRCS y CBRFC lo publican de enero a junio.`}</p>
         )}
+      </section>
+
+      <section className="card">
+        <div className="toolbar"><h2>💧 Pronósticos oficiales para los otros embalses y ríos</h2><Kind k="oficial" /></div>
+        <p className="muted">Flaming Gorge, Blue Mesa, Navajo, McPhee, Granby, Dillon, Fontenelle y el resto de los puntos donde NRCS y CBRFC pronostican el aporte de la temporada.</p>
+        <OtherForecasts u={u} />
       </section>
 
       {/* ---------------------------------------------------------------- estimación */}
