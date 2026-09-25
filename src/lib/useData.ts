@@ -15,6 +15,8 @@ export interface GaugesState {
   state: "loading" | "ok" | "error";
   fetchedAt?: string;
   stale?: boolean; // USGS no respondió: se muestra el último dato guardado
+  lastRunAt?: string | null; // última consulta a USGS (función programada)
+  errors?: string[];
   gauges: Record<string, GaugeOut>;
   error?: string;
 }
@@ -53,8 +55,8 @@ export function useData() {
     const b = hourBucket();
     const usgs = getJson(`/api/usgs?b=${Math.floor(Date.now() / 900000)}`)
       .then(({ status, body }) => {
-        if (status === 200 && body?.gauges) setGauges({ state: "ok", gauges: body.gauges, fetchedAt: body.fetchedAt, stale: !!body.stale });
-        else setGauges((g) => ({ ...g, state: Object.keys(g.gauges).length ? "ok" : "error", error: body?.error || `HTTP ${status}` }));
+        if (status === 200 && body?.gauges) setGauges({ state: "ok", gauges: body.gauges, fetchedAt: body.fetchedAt, stale: !!body.stale, lastRunAt: body.lastRunAt, errors: body.errors || [] });
+        else setGauges((g) => ({ ...g, state: Object.keys(g.gauges).length ? "ok" : "error", error: body?.error || `HTTP ${status}`, lastRunAt: body?.lastRunAt, errors: body?.errors || [] }));
       })
       .catch((e) => setGauges((g) => ({ ...g, state: Object.keys(g.gauges).length ? "ok" : "error", error: String(e?.message || e) })));
 

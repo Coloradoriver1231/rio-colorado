@@ -26,7 +26,7 @@ export default function Rivers({ gauges, u }: { gauges: GaugesState; u: Units })
   return (
     <section className="card">
       <h2>Caudal de los ríos — de aguas arriba a aguas abajo</h2>
-      {gauges.state === "error" && <p className="note warn">USGS no responde en este momento ({gauges.error}). Se reintenta solo cada 15 minutos.</p>}
+      {gauges.state === "error" && <p className="note warn">USGS no responde en este momento ({gauges.error}). Se reintenta solo cada 15 minutos{gauges.lastRunAt ? ` (último intento ${ago(Date.parse(gauges.lastRunAt))})` : ""}.</p>}
       {gauges.stale && gauges.fetchedAt && <p className="note warn">USGS no responde: se muestra el último dato bueno, guardado {ago(Date.parse(gauges.fetchedAt))}.</p>}
       {groups.map((g) => (
         <div key={g.id} className="rgroup">
@@ -63,7 +63,7 @@ export default function Rivers({ gauges, u }: { gauges: GaugesState; u: Units })
           </div>
         </div>
       ))}
-      <p className="note">USGS, valores instantáneos provisorios (se muestra el último de cada hora, últimos 7 días). Unidades: {u === "metric" ? `m³/s (1 cfs = ${flowVal(1, "metric").toFixed(4)} m³/s)` : "pies cúbicos por segundo"}.</p>
+      <p className="note">{gauges.state === "ok" && gauges.fetchedAt && <>Datos de USGS actualizados {ago(Date.parse(gauges.fetchedAt))}{gauges.lastRunAt ? `, última consulta ${ago(Date.parse(gauges.lastRunAt))}` : ""}{gauges.errors?.length ? ` (avisos: ${gauges.errors.join("; ")})` : ""}. </>}USGS, valores instantáneos provisorios (se muestra el último de cada hora, últimos 7 días). Unidades: {u === "metric" ? `m³/s (1 cfs = ${flowVal(1, "metric").toFixed(4)} m³/s)` : "pies cúbicos por segundo"}.</p>
     </section>
   );
 }

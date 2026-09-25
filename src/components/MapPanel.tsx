@@ -46,23 +46,11 @@ function ZoomWatch({ onZoom }: { onZoom: (z: number) => void }) {
   return null;
 }
 
-function useDark() {
-  const q = typeof matchMedia !== "undefined" ? matchMedia("(prefers-color-scheme: dark)") : null;
-  const [dark, setDark] = useState(() => !!q?.matches);
-  useEffect(() => {
-    if (!q) return;
-    const f = () => setDark(q.matches);
-    q.addEventListener("change", f);
-    return () => q.removeEventListener("change", f);
-  }, [q]);
-  return dark;
-}
 
 export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, u, onOpen }: {
   views: ResView[]; others: BasinRes[]; coordBySite: Map<number, [number, number]>; hdbSites: { site: number; lat: number; lon: number }[];
   gauges: GaugesState; u: Units; onOpen: (s: number) => void;
 }) {
-  const dark = useDark();
   const [showRes, setShowRes] = useState(true);
   const [showRiv, setShowRiv] = useState(true);
   const [labels, setLabels] = useState(true);
@@ -111,17 +99,17 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
           <FitOnMount />
           <ZoomWatch onZoom={setZoom} />
           <TileLayer
-            key={dark ? "d" : "l"}
-            url={dark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            subdomains="abcd"
+            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+            subdomains="abc"
+            maxZoom={17}
+            attribution='Datos &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM · Estilo &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
           />
           {showRes && pins.map((p) => (
             <CircleMarker
               key={p.key}
               center={[p.lat, p.lon]}
               radius={radius(p.cap)}
-              pathOptions={{ color: dark ? "#e6e9ee" : "#16202e", weight: 1, fillColor: color(p.pct), fillOpacity: 0.85 }}
+              pathOptions={{ color: "#16202e", weight: 1, fillColor: color(p.pct), fillOpacity: 0.85 }}
               eventHandlers={p.site != null ? { click: () => onOpen(p.site!) } : undefined}
             >
               <Tooltip direction="top" offset={[0, -radius(p.cap)]}>
@@ -171,7 +159,7 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
       </div>
       <p className="note">
         Tamaño del círculo ∝ capacidad del embalse. {pins.length} embalses en el mapa{noLoc.length ? ` (${noLoc.length} sin ubicación publicada: ${noLoc.join(", ")})` : ""}.
-        Ubicaciones: NRCS, USBR y USGS. Mapa base © OpenStreetMap, © CARTO.
+        Ubicaciones: NRCS, USBR y USGS. Mapa base: OpenTopoMap (© OpenStreetMap, SRTM).
       </p>
     </section>
   );
