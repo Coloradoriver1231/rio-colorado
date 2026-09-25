@@ -56,7 +56,7 @@ export function Next10({ o, u }: { o: OutlookState; u: Units }) {
               <th className="num">Precipitación 10 d (agua)</th>
               <th className="num">…de eso, como nieve (agua)</th>
               <th className="num">Nieve nueva aprox.</th>
-              {w.regions[0]?.blocks.map((b) => <th key={b.label} className="num hide-sm">{b.label}</th>)}
+              {(w.regions[0]?.blocks ?? []).map((b) => <th key={b.label} className="num hide-sm">{b.label}</th>)}
               <th className="hide-sm">Puntos de pronóstico</th>
             </tr>
           </thead>
@@ -65,11 +65,11 @@ export function Next10({ o, u }: { o: OutlookState; u: Units }) {
               <tr key={r.name}>
                 <td><b>{r.name}</b></td>
                 <td className="num">{water(r.totalPrecMm, u)}</td>
-                <td className="num">{water(r.totalSnowWaterMm, u)}</td>
+                <td className="num">{water(r.totalSnowWaterMm ?? null, u)}</td>
                 <td className="num">{snowTxt(r.totalSnowCm, u)}</td>
-                {r.blocks.map((b) => <td key={b.label} className="num hide-sm">{water(b.precMm, u)}</td>)}
-                <td className="hide-sm"><span className="sub" title={r.pointNames.map((n, i) => `${n}${r.pointElevM[i] != null ? ` (${r.pointElevM[i]} m)` : ""}`).join("\n")}>
-                  {r.points} estaciones SNOTEL: {r.pointNames.join(", ")}</span></td>
+                {(r.blocks ?? []).map((b) => <td key={b.label} className="num hide-sm">{water(b.precMm, u)}</td>)}
+                <td className="hide-sm"><span className="sub" title={(r.pointNames ?? []).map((n, i) => `${n}${r.pointElevM?.[i] != null ? ` (${r.pointElevM[i]} m)` : ""}`).join("\n")}>
+                  {r.points} estaciones SNOTEL{r.pointNames?.length ? `: ${r.pointNames.join(", ")}` : ""}</span></td>
               </tr>
             ))}
           </tbody>
@@ -79,7 +79,7 @@ export function Next10({ o, u }: { o: OutlookState; u: Units }) {
         <li><b>Precipitación</b> = mm de agua (lluvia + nieve derretida). <b>…como nieve</b> = la parte que cae como nieve, también en agua (precipitación − lluvia − chaparrones, según Open-Meteo). <b>Nieve nueva</b> = centímetros de nieve, que Open-Meteo calcula con una relación fija (7 cm de nieve ≈ 10 mm de agua); la nieve real puede ser más liviana o más densa. Son magnitudes distintas: no se suman.</li>
         <li><b>Puntos</b>: se pronostica en las 3 estaciones SNOTEL más altas de cada subcuenca (con su altura real). Representan las zonas altas donde se acumula la nieve, <b>no el promedio de toda la subcuenca</b> (en zonas bajas llueve más y nieva menos).</li>
         <li><b>Incertidumbre por horizonte</b> (cualitativa, sin porcentajes): días 1–3 la más confiable · días 4–5 aceptable para eventos grandes · días 6–7 baja · días 8–10 sólo tendencia. Después de 5–7 días la incertidumbre aumenta mucho.</li>
-        <li>Fuente: {w.source} (<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">open-meteo.com</a>) · pronóstico automático, no oficial (el oficial es del <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">NWS</a>) · consultado {fdate(w.fetchedAt.slice(0, 10))}.</li>
+        <li>Fuente: {w.source} (<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">open-meteo.com</a>) · pronóstico automático, no oficial (el oficial es del <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">NWS</a>) · consultado {fdate(w.fetchedAt?.slice(0, 10))}.</li>
       </ul>
     </>
   );
@@ -129,7 +129,7 @@ export function Months({ o }: { o: OutlookState }) {
         <li>Cada período de 3 meses se divide en tres tercios (seco / normal / húmedo) que normalmente tienen 33 % de chance cada uno. "Más húmedo 40–50 %" = la chance de caer en el tercio más lluvioso subió a 40–50 %. <b>No dice cuántos milímetros ni cuánta nieve va a caer.</b> "Igual probabilidad" = sin señal.</li>
         <li><b>Temperatura</b> (separada): influye en si cae lluvia o nieve, cuánto se acumula, cuándo empieza el deshielo, qué tan rápido escurre y cuánta nieve se pierde por sublimación. Pero "más cálido" <b>no</b> significa automáticamente "menos agua": depende de cuánto nieve y de cuándo haga calor.</li>
         <li>Se lee el valor de CPC en el centro de cada zona (un punto representativo, no toda la zona).</li>
-        <li>Fuente: NOAA Climate Prediction Center, perspectiva estacional{d.cpc.issued ? ` emitida el ${fdate(d.cpc.issued)}` : ""} (se actualiza el tercer jueves de cada mes) · consultado {fdate(d.cpc.fetchedAt.slice(0, 10))} · <a href="https://www.cpc.ncep.noaa.gov/products/predictions/long_range/seasonal.php" target="_blank" rel="noreferrer">mapas de CPC</a>.{d.cpc.error ? ` ${d.cpc.error}.` : ""}</li>
+        <li>Fuente: NOAA Climate Prediction Center, perspectiva estacional{d.cpc.issued ? ` emitida el ${fdate(d.cpc.issued)}` : ""} (se actualiza el tercer jueves de cada mes) · consultado {fdate(d.cpc.fetchedAt?.slice(0, 10))} · <a href="https://www.cpc.ncep.noaa.gov/products/predictions/long_range/seasonal.php" target="_blank" rel="noreferrer">mapas de CPC</a>.{d.cpc.error ? ` ${d.cpc.error}.` : ""}</li>
       </ul>
     </>
   );

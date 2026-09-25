@@ -6,7 +6,7 @@
 import type { Config } from "@netlify/functions";
 import { readJson, writeJson } from "../lib/blob";
 import { json } from "../lib/net";
-import { buildStatus, type ModelOut, type SnowStatus, type Station } from "../lib/snow";
+import { buildStatus, MODEL_V, STATUS_V, type ModelOut, type SnowStatus, type Station } from "../lib/snow";
 
 export default async () => {
   let [status, model, known] = await Promise.all([
@@ -14,6 +14,9 @@ export default async () => {
     readJson<ModelOut>("snow-model"),
     readJson<Station[]>("snotel-stations"),
   ]);
+  // lo guardado por una versión anterior del monitor tiene otro formato: no se usa
+  if (status && status.v !== STATUS_V) status = null;
+  if (model && model.v !== MODEL_V) model = null;
   if (!status) {
     const s = await buildStatus(Date.now(), true, known);
     if (s) {

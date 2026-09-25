@@ -4,11 +4,11 @@
  */
 import type { Config } from "@netlify/functions";
 import { readJson, writeJson } from "../lib/blob";
-import { buildModel, isoDay, type ModelOut } from "../lib/snow";
+import { buildModel, isoDay, MODEL_V, type ModelOut } from "../lib/snow";
 
 export default async () => {
   const prev = await readJson<ModelOut>("snow-model");
-  if (prev && prev.today === isoDay(Date.now())) return;
+  if (prev && prev.v === MODEL_V && prev.today === isoDay(Date.now())) return;
   const m = await buildModel();
   if (m) await writeJson("snow-model", m);
   console.log(m ? `snow-model: ${m.years.length} años, modelo ${m.chosen ?? "ninguno"}, confianza ${m.confidence.level}` : "snow-model: sin datos");

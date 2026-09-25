@@ -41,7 +41,9 @@ function Kind({ k }: { k: "obs" | "oficial" | "meteo" | "monitor" }) {
 
 export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
   const t = theme();
-  const s = snow.status, m = snow.model;
+  // tolera datos guardados por versiones anteriores (campos faltantes)
+  const s = snow.status ? { ...snow.status, forecasts: snow.status.forecasts ?? [], subbasins: snow.status.subbasins ?? [], stations: snow.status.stations ?? [] } : null;
+  const m = snow.model && Array.isArray(snow.model.models) && Array.isArray(snow.model.retro) ? snow.model : null;
   const o = useOutlook();
 
   const seasonOpt = useMemo(() => {

@@ -153,7 +153,12 @@ export function aggregate(list: StationNow[], total: number): Agg {
   };
 }
 
+/** Versión del formato guardado en Blobs: si cambia, lo guardado antes se descarta y se recalcula. */
+export const STATUS_V = 2;
+export const MODEL_V = 2;
+
 export interface SnowStatus {
+  v: number;
   builtAt: string; today: string; wy: number; wyStart: string;
   stations: StationNow[]; missing: number; failedChunks: number;
   /** cobertura por cuenca: esperadas (activas en NRCS), con dato vigente (≤ 3 días), desactualizadas, sin observación en el período, error de consulta */
@@ -271,7 +276,7 @@ export async function buildStatus(now = Date.now(), light = false, known?: Stati
     : [];
 
   return {
-    builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy), light, ms: Date.now() - t0,
+    v: STATUS_V, builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy), light, ms: Date.now() - t0,
     stations: list, missing, failedChunks: main.failedChunks, allStations: stations, coverage,
     dataDate: list.length ? list.map((x) => x.date).sort().pop()! : null,
     basins, subbasins, season, forecasts,
@@ -322,6 +327,7 @@ export interface Method {
   r: number | null; r2: number | null; looR2: number | null; skill: Skill | null;
 }
 export interface ModelOut {
+  v: number;
   builtAt: string; today: string; wy: number; runoffYear: number;
   /** fecha del calendario ("MM-DD") en la que se comparan todos los años */
   md: string; inSeason: boolean; reason: string | null;
@@ -524,7 +530,7 @@ export async function buildModel(now = Date.now()): Promise<ModelOut | null> {
   } else if (reason) reasons.push(reason);
 
   return {
-    builtAt: new Date(now).toISOString(), today, wy, runoffYear, md, inSeason, reason,
+    v: MODEL_V, builtAt: new Date(now).toISOString(), today, wy, runoffYear, md, inSeason, reason,
     years, stationsUsed: sw.used, stationsNow: sw.now,
     current,
     models, chosen: chosen?.name ?? null, retro, halfWidth, analogYears,

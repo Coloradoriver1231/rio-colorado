@@ -4,6 +4,7 @@ import { basinTotals, derive, linkBasin, systemTotals } from "./lib/calc";
 import { ago, type Units } from "./lib/units";
 import { RESERVOIRS, useData, useSnow } from "./lib/useData";
 import Snow from "./components/Snow";
+import Boundary from "./components/Boundary";
 import Detail from "./components/Detail";
 import Flows from "./components/Flows";
 import Overview from "./components/Overview";
@@ -75,6 +76,7 @@ export default function App() {
         {TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}
       </nav>
       <main>
+        <Boundary name={tab}>
         {tab === "resumen" && <Overview views={views} tot={tot} btot={btot} gauges={gauges} u={u} onOpen={setOpen} />}
         {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} />}
         {tab === "balance" && <Flows views={views} u={u} onOpen={setOpen} />}
@@ -82,8 +84,9 @@ export default function App() {
         {tab === "nieve" && <Snow snow={snow} u={u} />}
         {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} snow={snow.status} u={u} onOpen={setOpen} />}
         {tab === "fuentes" && <Sources />}
+        </Boundary>
       </main>
-      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.</footer>
+      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v9 · 25-sep-2026</span></footer>
       {openView && <Detail v={openView} u={u} onClose={() => setOpen(null)} />}
     </div>
   );
