@@ -8,12 +8,14 @@ import Flows from "./components/Flows";
 import Overview from "./components/Overview";
 import Reservoirs from "./components/Reservoirs";
 import Rivers from "./components/Rivers";
+import MapPanel from "./components/MapPanel";
 
 const TABS = [
   { id: "resumen", label: "Panorama" },
   { id: "embalses", label: "Embalses" },
   { id: "balance", label: "Entradas y salidas" },
   { id: "rios", label: "Ríos" },
+  { id: "mapa", label: "Mapa" },
   { id: "fuentes", label: "Fuentes" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -74,6 +76,7 @@ export default function App() {
         {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} />}
         {tab === "balance" && <Flows views={views} u={u} onOpen={setOpen} />}
         {tab === "rios" && <Rivers gauges={gauges} u={u} />}
+        {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} u={u} onOpen={setOpen} />}
         {tab === "fuentes" && <Sources />}
       </main>
       <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.</footer>
@@ -90,7 +93,8 @@ function Sources() {
       <h3>De dónde salen los datos</h3>
       <ul>
         <li><b>Embalses</b> — Bureau of Reclamation (USBR), <a href="https://www.usbr.gov/uc/water/hydrodata/reservoir_data/site_map.html" target="_blank" rel="noreferrer">hydrodata</a>: almacenamiento, entrada media diaria, salida total media diaria y cota. Un dato por día, provisorio.</li>
-        <li><b>Ríos</b> — USGS <a href="https://waterservices.usgs.gov/" target="_blank" rel="noreferrer">Water Services</a>, caudal instantáneo (parámetro 00060), últimos 7 días.</li>
+        <li><b>Ríos</b> — USGS <a href="https://waterservices.usgs.gov/" target="_blank" rel="noreferrer">Water Services</a> (respaldo: <a href="https://api.waterdata.usgs.gov/" target="_blank" rel="noreferrer">API nueva de USGS</a>), caudal instantáneo (parámetro 00060), últimos 7 días. Se consulta cada 15 min; si USGS no responde se muestra el último dato bueno con su hora.</li>
+        <li><b>Mapa</b> — ubicaciones de NRCS, USBR y USGS; mapa base © OpenStreetMap / CARTO.</li>
         <li><b>Capacidades</b> — la que publica USBR Lower Colorado para Powell, Mead, Mohave y Havasu (<a href={cap.url} target="_blank" rel="noreferrer">{cap.label}</a>) y algunas cargadas en el catálogo; para el resto, la <b>capacidad útil</b> que informa NRCS (USDA) en su base AWDB. Sólo se marca con * si no hay capacidad en ninguna de las dos fuentes (% sobre el máximo registrado).</li>
         <li><b>Resto de la cuenca</b> — NRCS <a href="https://wcc.sc.egov.usda.gov/awdbRestApi/" target="_blank" rel="noreferrer">AWDB</a>: todos los embalses de las cuencas HUC 14 (Alta) y 15 (Baja, incluye Salt, Verde, San Carlos) con su almacenamiento diario. Algunos (p. ej. los sistemas Salt y Verde) sólo tienen dato mensual: se muestran pero no suman al total.</li>
         <li><b>Niveles de referencia</b> de Powell (3.700 / 3.490 / 3.370 ft) y Mead (1.229 / 950 / 895 ft): lleno, mínimo para generar energía y nivel muerto, según USBR.</li>

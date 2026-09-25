@@ -269,17 +269,21 @@ export interface BasinRes {
 const normName = (s: string) => s.toLowerCase().replace(/\b(reservoir|lake|res)\b/g, "").replace(/[^a-z]/g, "");
 
 /** Vincula cada embalse NRCS con el catálogo USBR: por sitio USBR (cercanía) o, si no, por nombre exacto normalizado. */
-export function linkBasin(basin: BasinRes[], cats: ReservoirCat[]): { capBySite: Map<number, number>; others: BasinRes[] } {
+export function linkBasin(basin: BasinRes[], cats: ReservoirCat[]): { capBySite: Map<number, number>; coordBySite: Map<number, [number, number]>; others: BasinRes[] } {
   const bySite = new Map(cats.map((c) => [c.site, c]));
   const byName = new Map(cats.map((c) => [normName(c.name), c]));
   const capBySite = new Map<number, number>();
+  const coordBySite = new Map<number, [number, number]>();
   const others: BasinRes[] = [];
   for (const b of basin) {
     const c = (b.hdb_site != null && bySite.get(b.hdb_site)) || byName.get(normName(b.name));
-    if (c) { if (b.capacity_af && !capBySite.has(c.site)) capBySite.set(c.site, b.capacity_af); }
+    if (c) {
+      if (b.capacity_af && !capBySite.has(c.site)) capBySite.set(c.site, b.capacity_af);
+      if (!coordBySite.has(c.site)) coordBySite.set(c.site, [b.lat, b.lon]);
+    }
     else others.push(b);
   }
-  return { capBySite, others };
+  return { capBySite, coordBySite, others };
 }
 
 /** Total de toda la cuenca = embalses USBR (con capacidad y dato vigente) + resto de NRCS con dato diario vigente. */

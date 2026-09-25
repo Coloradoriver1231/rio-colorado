@@ -186,3 +186,22 @@ export function parseUsgsIv(j: unknown): Record<string, GaugeOut> {
   }
   return out;
 }
+
+/**
+ * USGS Water Data API nueva (OGC, colección "continuous"): GeoJSON con properties.time (ISO) y properties.value.
+ * Se usa como respaldo cuando waterservices falla. Devuelve la serie horaria (último valor de cada hora).
+ */
+export function parseUsgsOgcContinuous(j: unknown): [number, number][] {
+  const feats: any[] = Array.isArray((j as any)?.features) ? (j as any).features : [];
+  const hourly = new Map<number, [number, number]>();
+  for (const f of feats) {
+    const p = f?.properties || {};
+    const t = Date.parse(p.time);
+    const v = p.value === null || p.value === "" ? NaN : Number(p.value);
+    if (!Number.isFinite(t) || !Number.isFinite(v) || v < -1000) continue;
+    const h = Math.floor(t / 3600000) * 3600000;
+    const prev = hourly.get(h);
+    if (!prev || t >= prev[0]) hourly.set(h, [t, v]);
+  }
+  return [...hourly.entries()].sort((a, b) => a[0] - b[0]).map(([h, [, v]]) => [h, v]);
+}

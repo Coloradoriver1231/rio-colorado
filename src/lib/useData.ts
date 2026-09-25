@@ -14,6 +14,7 @@ export interface ResState {
 export interface GaugesState {
   state: "loading" | "ok" | "error";
   fetchedAt?: string;
+  stale?: boolean; // USGS no respondió: se muestra el último dato guardado
   gauges: Record<string, GaugeOut>;
   error?: string;
 }
@@ -42,7 +43,7 @@ export function useData() {
     Object.fromEntries(RESERVOIRS.map((r) => [r.site, { state: "loading", data: null }])),
   );
   const [gauges, setGauges] = useState<GaugesState>({ state: "loading", gauges: {} });
-  const [basin, setBasin] = useState<{ state: "loading" | "ok" | "error"; list: BasinRes[]; error?: string }>({ state: "loading", list: [] });
+  const [basin, setBasin] = useState<{ state: "loading" | "ok" | "error"; list: BasinRes[]; hdbSites: { site: number; lat: number; lon: number }[]; error?: string }>({ state: "loading", list: [], hdbSites: [] });
   const [loadedAt, setLoadedAt] = useState<number>(Date.now());
   const running = useRef(false);
 
@@ -52,14 +53,14 @@ export function useData() {
     const b = hourBucket();
     const usgs = getJson(`/api/usgs?b=${Math.floor(Date.now() / 900000)}`)
       .then(({ status, body }) => {
-        if (status === 200 && body?.gauges) setGauges({ state: "ok", gauges: body.gauges, fetchedAt: body.fetchedAt });
+        if (status === 200 && body?.gauges) setGauges({ state: "ok", gauges: body.gauges, fetchedAt: body.fetchedAt, stale: !!body.stale });
         else setGauges((g) => ({ ...g, state: Object.keys(g.gauges).length ? "ok" : "error", error: body?.error || `HTTP ${status}` }));
       })
       .catch((e) => setGauges((g) => ({ ...g, state: Object.keys(g.gauges).length ? "ok" : "error", error: String(e?.message || e) })));
 
     const nrcs = getJson(`/api/basin?b=${b}`)
       .then(({ status, body }) => {
-        if (status === 200 && Array.isArray(body?.reservoirs)) setBasin({ state: "ok", list: body.reservoirs });
+        if (status === 200 && Array.isArray(body?.reservoirs)) setBasin({ state: "ok", list: body.reservoirs, hdbSites: Array.isArray(body.hdbSites) ? body.hdbSites : [] });
         else setBasin((x) => ({ ...x, state: x.list.length ? "ok" : "error", error: body?.error || `HTTP ${status}` }));
       })
       .catch((e) => setBasin((x) => ({ ...x, state: x.list.length ? "ok" : "error", error: String(e?.message || e) })));

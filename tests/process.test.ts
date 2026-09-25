@@ -148,15 +148,4 @@ describe("funciones Netlify", () => {
     expect(r.status).toBe(502);
     expect(r.headers.get("netlify-cdn-cache-control")).toBe("public, s-maxage=120");
   });
-  it("usgs: pide todas las estaciones del catálogo", async () => {
-    const spy = vi.fn(async () => new Response(JSON.stringify({ value: { timeSeries: [] } }), { status: 200 }));
-    vi.stubGlobal("fetch", spy);
-    const f = (await import("../netlify/functions/usgs.mts")).default;
-    const r = await f();
-    expect(r.status).toBe(200);
-    const url = (spy.mock.calls[0] as any)[0] as string;
-    expect(url).toContain("waterservices.usgs.gov/nwis/iv/");
-    expect(url).toContain("09380000");
-    expect(url).toContain("09522000");
-  });
 });

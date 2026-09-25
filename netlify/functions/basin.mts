@@ -89,7 +89,13 @@ export default async () => {
   });
 
   return json(
-    { fetchedAt: new Date(now).toISOString(), hdbLinked: hdb.length > 0, reservoirs },
+    {
+      fetchedAt: new Date(now).toISOString(),
+      hdbLinked: hdb.length > 0,
+      reservoirs,
+      // ubicación de los sitios USBR (para el mapa)
+      hdbSites: hdb.filter((s) => s.datatypes.includes(17)).map((s) => ({ site: s.site_id, lat: s.lat, lon: s.lon })),
+    },
     200,
     "public, durable, s-maxage=10800, stale-while-revalidate=86400",
   );

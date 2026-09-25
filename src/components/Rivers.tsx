@@ -1,6 +1,6 @@
 import catalog from "../data/catalog.json";
 import type { GaugesState } from "../lib/useData";
-import { flow, flowVal, fdate, type Units } from "../lib/units";
+import { ago, flow, flowVal, fdate, type Units } from "../lib/units";
 
 interface G { id: string; name: string; group: string; role?: string }
 
@@ -26,7 +26,8 @@ export default function Rivers({ gauges, u }: { gauges: GaugesState; u: Units })
   return (
     <section className="card">
       <h2>Caudal de los ríos — de aguas arriba a aguas abajo</h2>
-      {gauges.state === "error" && <p className="note warn">No se pudo leer USGS: {gauges.error}</p>}
+      {gauges.state === "error" && <p className="note warn">USGS no responde en este momento ({gauges.error}). Se reintenta solo cada 15 minutos.</p>}
+      {gauges.stale && gauges.fetchedAt && <p className="note warn">USGS no responde: se muestra el último dato bueno, guardado {ago(Date.parse(gauges.fetchedAt))}.</p>}
       {groups.map((g) => (
         <div key={g.id} className="rgroup">
           <h3>{g.name}</h3>
