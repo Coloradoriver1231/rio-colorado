@@ -117,7 +117,11 @@ export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
             <p className="note">Cuenca Baja (Gila, Salt, Verde, Virgin): SWE {depth(B.swe, u)}{B.swePct != null ? ` (${pct(B.swePct)} de la mediana)` : ""} · precipitación del año {depth(B.prec, u)}{B.precPct != null ? ` (${pct(B.precPct)} de la mediana)` : ""} · {B.n}/{B.stations} estaciones.</p>
           )}
           <h3>Temporada {s.wy}: promedio de las estaciones vs. mediana 1991–2020</h3>
-          {seasonOpt && <EChart option={seasonOpt} style={{ height: 300 }} />}
+          {s.light ? (
+            <p className="note warn">Vista rápida (últimos 32 días): el gráfico de toda la temporada aparece cuando corre la actualización automática, dentro de la próxima hora.</p>
+          ) : (
+            seasonOpt && <EChart option={seasonOpt} style={{ height: 300 }} />
+          )}
           <p className="note">
             <b>SWE</b> (equivalente en agua de la nieve) = agua que hay hoy guardada como nieve en el suelo. <b>Precipitación</b> = todo lo que cayó desde el 1-oct
             medido en el pluviómetro (lluvia + nieve derretida, en agua equivalente); SNOTEL no separa lluvia de nieve. No se suman: la nieve que cayó está incluida en ambas.
@@ -214,7 +218,7 @@ export default function Snow({ snow, u }: { snow: SnowState; u: Units }) {
             {scatterOpt && <EChart option={scatterOpt} style={{ height: 300 }} />}
           </>
         ) : (
-          <p className="note">La estimación se calcula una vez por día; todavía no corrió.</p>
+          <p className="note">La estimación se calcula automáticamente una vez por día (la primera, dentro de la hora siguiente a publicar). Todavía no corrió.</p>
         )}
         <details className="method">
           <summary>Metodología, temporadas y reglas de confianza</summary>

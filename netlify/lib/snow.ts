@@ -32,8 +32,8 @@ export interface Station { id: string; name: string; elev: number | null; lat: n
 export interface Val { date: string; value: number; median?: number; average?: number }
 export type ByElem = Record<string, Val[]>;
 
-export async function listSnotel(): Promise<Station[] | null> {
-  const j = await get(`${AWDB}/stations?stationTriplets=*:*:SNTL&hucs=14*,15*&elements=WTEQ&activeOnly=true`, "json", 9000);
+export async function listSnotel(ms = 9000): Promise<Station[] | null> {
+  const j = await get(`${AWDB}/stations?stationTriplets=*:*:SNTL&hucs=14*,15*&elements=WTEQ&activeOnly=true`, "json", ms);
   if (!Array.isArray(j)) return null;
   const seen = new Set<string>();
   const out: Station[] = [];
@@ -155,26 +155,36 @@ export function aggregate(list: StationNow[], total: number): Agg {
 export interface SnowStatus {
   builtAt: string; today: string; wy: number; wyStart: string;
   stations: StationNow[]; missing: number; failedChunks: number;
+  /** lista completa de SNOTEL (se guarda para no volver a pedirla) */
+  allStations?: Station[];
   basins: Record<"alta" | "baja", Agg>;
   subbasins: (Agg & { name: string; basin: "alta" | "baja" })[];
   /** serie diaria de la temporada: promedio de las estaciones con dato y mediana ese día (mismo conjunto) */
   season: Record<"alta" | "baja", { dates: string[]; swe: (number | null)[]; sweMed: (number | null)[]; prec: (number | null)[]; precMed: (number | null)[]; n: number[] }>;
   forecasts: { publicationDate: string; issueDate: string | null; period: [string, string]; normal: number | null; unit: string; values: Record<string, number> }[];
   forecastError: string | null;
+  /** versión liviana (últimos 32 días): sin gráfico de temporada completo */
+  light: boolean;
+  ms: number;
 }
 
-export async function buildStatus(now = Date.now()): Promise<SnowStatus | null> {
-  const found = await listSnotel();
+/**
+ * `light`: sólo los últimos 32 días (rápido, para responder en ≤ 10 s si todavía no corrió la actualización programada).
+ * La versión completa (desde 31 días antes del 1-oct) la arma la función programada, que tiene 30 s.
+ */
+export async function buildStatus(now = Date.now(), light = false, known?: Station[] | null): Promise<SnowStatus | null> {
+  const t0 = Date.now();
+  const found = known?.length ? known : await listSnotel(light ? 3500 : 9000);
   if (!found?.length) return null;
   const stations: Station[] = found;
   const today = isoDay(now);
   const wy = waterYear(today);
-  const start = addDays(wyStartOf(wy), -31); // un mes antes, para ventanas que cruzan el 1-oct
+  const start = light ? addDays(today, -32) : addDays(wyStartOf(wy), -31); // un mes antes, para ventanas que cruzan el 1-oct
   const ids = stations.map((s) => s.id);
   const [main, depth, fc] = await Promise.all([
-    awdbDaily(ids, "WTEQ,PREC", start, today, true),
-    awdbDaily(ids, "SNWD", addDays(today, -3), today, false, 100, 2),
-    get(`${AWDB}/forecasts?stationTriplets=${POWELL_FORECAST_POINT}&beginPublicationDate=${wyStartOf(wy)}&endPublicationDate=${today}`, "json", 9000),
+    awdbDaily(ids, "WTEQ,PREC", start, today, true, 25, 8, light ? 5500 : 20000),
+    awdbDaily(ids, "SNWD", addDays(today, -3), today, false, 100, 2, light ? 5000 : 9000),
+    get(`${AWDB}/forecasts?stationTriplets=${POWELL_FORECAST_POINT}&beginPublicationDate=${wyStartOf(wy)}&endPublicationDate=${today}`, "json", light ? 5000 : 9000),
   ]);
 
   const list: StationNow[] = [];
@@ -217,7 +227,7 @@ export async function buildStatus(now = Date.now()): Promise<SnowStatus | null> 
       const d = main.data.get(id);
       return { w: new Map((d?.WTEQ || []).map((v) => [v.date, v])), p: new Map((d?.PREC || []).map((v) => [v.date, v])) };
     });
-    for (let d = wyStartOf(wy); d <= today; d = addDays(d, 1)) {
+    for (let d = light ? addDays(today, -32) : wyStartOf(wy); d <= today; d = addDays(d, 1)) {
       let sw = 0, sm = 0, nw = 0, pw = 0, pm = 0, np = 0;
       for (const x of idx) {
         const w = x.w.get(d);
@@ -249,8 +259,8 @@ export async function buildStatus(now = Date.now()): Promise<SnowStatus | null> 
     : [];
 
   return {
-    builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy),
-    stations: list, missing, failedChunks: main.failedChunks,
+    builtAt: new Date(now).toISOString(), today, wy, wyStart: wyStartOf(wy), light, ms: Date.now() - t0,
+    stations: list, missing, failedChunks: main.failedChunks, allStations: stations,
     basins, subbasins, season, forecasts,
     forecastError: Array.isArray(fc) ? null : "NRCS no devolvió pronósticos",
   };
