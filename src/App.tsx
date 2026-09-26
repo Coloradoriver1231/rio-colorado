@@ -8,6 +8,7 @@ import Projections from "./components/Projections";
 import Compact from "./components/Compact";
 import Boundary from "./components/Boundary";
 import { StationModal } from "./components/Stations";
+import NrcsResModal from "./components/NrcsResModal";
 import Detail from "./components/Detail";
 import Flows from "./components/Flows";
 import Overview from "./components/Overview";
@@ -41,6 +42,7 @@ export default function App() {
   });
   const [open, setOpen] = useState<number | null>(null);
   const [station, setStation] = useState<string | null>(null);
+  const [nrcsRes, setNrcsRes] = useState<{ id: string; name: string } | null>(null);
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
   useEffect(() => { save("units", u); }, [u]);
@@ -82,15 +84,16 @@ export default function App() {
       <main>
         <Boundary name={tab}>
         {tab === "resumen" && <><Overview views={views} tot={tot} btot={btot} gauges={gauges} u={u} onOpen={setOpen} /><Projections /><Compact u={u} /></>}
-        {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} />}
+        {tab === "embalses" && <Reservoirs views={views} others={link.others} basinState={basin.state} u={u} onOpen={setOpen} onOpenNrcs={(id, name) => setNrcsRes({ id, name })} />}
         {tab === "balance" && <Flows views={views} u={u} onOpen={setOpen} />}
         {tab === "rios" && <Rivers gauges={gauges} u={u} />}
         {tab === "nieve" && <Snow snow={snow} u={u} onStation={setStation} />}
-        {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} snow={snow.status} u={u} onOpen={setOpen} onStation={setStation} />}
+        {tab === "mapa" && <MapPanel views={views} others={link.others} coordBySite={link.coordBySite} hdbSites={basin.hdbSites} gauges={gauges} snow={snow.status} u={u} onOpen={setOpen} onStation={setStation} onOpenNrcs={(id, name) => setNrcsRes({ id, name })} />}
         {tab === "fuentes" && <Sources />}
         </Boundary>
       </main>
-      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v11 · 25-sep-2026</span></footer>
+      <footer>Datos provisorios de USBR, NRCS y USGS; pueden corregirse. No es un sistema oficial. Se actualiza solo cada 30 min.<br /><span className="ver">Versión v12 · 25-sep-2026</span></footer>
+      {nrcsRes && <NrcsResModal id={nrcsRes.id} name={nrcsRes.name} u={u} onClose={() => setNrcsRes(null)} />}
       {station && <StationModal id={station} u={u} onClose={() => setStation(null)} curWy={snow.status?.wy ?? new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0)} />}
       {openView && <Detail v={openView} u={u} onClose={() => setOpen(null)} />}
     </div>

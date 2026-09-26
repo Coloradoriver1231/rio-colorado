@@ -58,9 +58,9 @@ function ZoomWatch({ onZoom }: { onZoom: (z: number) => void }) {
 }
 
 
-export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, snow, u, onOpen, onStation }: {
+export default function MapPanel({ views, others, coordBySite, hdbSites, gauges, snow, u, onOpen, onStation, onOpenNrcs }: {
   views: ResView[]; others: BasinRes[]; coordBySite: Map<number, [number, number]>; hdbSites: { site: number; lat: number; lon: number }[];
-  gauges: GaugesState; snow: SnowStatus | null; u: Units; onOpen: (s: number) => void; onStation: (id: string) => void;
+  gauges: GaugesState; snow: SnowStatus | null; u: Units; onOpen: (s: number) => void; onStation: (id: string) => void; onOpenNrcs: (id: string, name: string) => void;
 }) {
   const [showRes, setShowRes] = useState(true);
   const [showRiv, setShowRiv] = useState(true);
@@ -123,14 +123,14 @@ export default function MapPanel({ views, others, coordBySite, hdbSites, gauges,
               center={[p.lat, p.lon]}
               radius={radius(p.cap)}
               pathOptions={{ color: "#16202e", weight: 1, fillColor: color(p.pct), fillOpacity: 0.85 }}
-              eventHandlers={p.site != null ? { click: () => onOpen(p.site!) } : undefined}
+              eventHandlers={{ click: () => (p.site != null ? onOpen(p.site) : onOpenNrcs(p.key, p.name)) }}
             >
               <Tooltip direction="top" offset={[0, -radius(p.cap)]}>
                 <div className="mtip">
                   <b>{p.name}</b><span>{p.sub}</span>
                   <div>{pct(p.pct)} lleno · {vol(p.storage, u)}{p.cap ? ` de ${vol(p.cap, u)}` : ""}</div>
                   {p.inflow != null && <div>Entra {flow(p.inflow, u)}{p.est ? "*" : ""} · Sale {flow(p.release, u)} (7 d)</div>}
-                  <div className="muted">{p.date ?? "sin dato"}{p.monthly ? " · dato mensual" : ""}{p.site != null ? " · tocá para ver detalle" : ""}</div>
+                  <div className="muted">{p.date ?? "sin dato"}{p.monthly ? " · dato mensual" : ""} · tocá para ver detalle</div>
                 </div>
               </Tooltip>
             </CircleMarker>

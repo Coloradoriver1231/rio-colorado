@@ -6,7 +6,7 @@ import QTag, { QLegend } from "./QTag";
 
 type SortKey = "cuenca" | "pct" | "storage" | "net" | "vsMedian";
 
-export default function Reservoirs({ views, others, basinState, u, onOpen }: { views: ResView[]; others: BasinRes[]; basinState: "loading" | "ok" | "error"; u: Units; onOpen: (s: number) => void }) {
+export default function Reservoirs({ views, others, basinState, u, onOpen, onOpenNrcs }: { views: ResView[]; others: BasinRes[]; basinState: "loading" | "ok" | "error"; u: Units; onOpen: (s: number) => void; onOpenNrcs: (id: string, name: string) => void }) {
   const subs = (catalog as any).subbasins as { id: string; name: string }[];
   const [sub, setSub] = useState("todas");
   const [sort, setSort] = useState<SortKey>("cuenca");
@@ -91,7 +91,7 @@ export default function Reservoirs({ views, others, basinState, u, onOpen }: { v
         "Vs. historia": clasificación estadística propia (percentiles 10/50/90 del mismo día en años anteriores); no es una alerta oficial. Entra/Sale 7 d: promedio simple de los 7 caudales medios diarios que publica USBR. Balance 30 d = Σ(entrada − salida) de los días con ambos datos × 1,9835 (no incluye evaporación).
       </p>
       <QLegend />
-      <Others list={others} state={basinState} q={q} u={u} />
+      <Others list={others} state={basinState} q={q} u={u} onOpen={onOpenNrcs} />
       {without.length > 0 && (
         <details className="nodata">
           <summary>{without.length} embalses sin datos {loading ? "(cargando…)" : ""}</summary>
@@ -107,7 +107,7 @@ export default function Reservoirs({ views, others, basinState, u, onOpen }: { v
 }
 
 /** Embalses que USBR hydrodata no publica (Granby, Dillon, Ruedi, Salt, Verde, San Carlos…): sólo almacenamiento, vía NRCS. */
-function Others({ list, state, q, u }: { list: BasinRes[]; state: "loading" | "ok" | "error"; q: string; u: Units }) {
+function Others({ list, state, q, u, onOpen }: { list: BasinRes[]; state: "loading" | "ok" | "error"; q: string; u: Units; onOpen: (id: string, name: string) => void }) {
   const rows = useMemo(
     () => list
       .filter((b) => !q || b.name.toLowerCase().includes(q.toLowerCase()))
@@ -120,7 +120,7 @@ function Others({ list, state, q, u }: { list: BasinRes[]; state: "loading" | "o
       {state === "error" && <p className="note warn">No se pudo cargar NRCS; se reintenta en la próxima actualización.</p>}
       {rows.length > 0 && (
         <div className="tablewrap">
-          <table className="restable plain">
+          <table className="restable">
             <thead>
               <tr>
                 <th>Embalse</th>
@@ -137,7 +137,7 @@ function Others({ list, state, q, u }: { list: BasinRes[]; state: "loading" | "o
                 const p = b.af != null && b.capacity_af ? b.af / b.capacity_af : null;
                 const ly = b.last_year_af != null && b.capacity_af ? b.last_year_af / b.capacity_af : null;
                 return (
-                  <tr key={b.id}>
+                  <tr key={b.id} onClick={() => onOpen(b.id, b.name)}>
                     <td><b>{b.name}</b><span className="sub">{b.subbasin} · {b.state}</span></td>
                     <td className="num">
                       <div className="minibar"><i style={{ width: `${Math.min(100, (p || 0) * 100)}%` }} />{ly != null && <b style={{ left: `${Math.min(100, ly * 100)}%` }} />}</div>
